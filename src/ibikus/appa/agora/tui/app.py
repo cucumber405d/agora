@@ -4,36 +4,59 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 from typing import ClassVar
 
 from textual import work
 from textual.app import App, ComposeResult
-from textual.binding import Binding, BindingType
+from textual.binding import ActiveBinding, Binding, BindingType
 from textual.containers import Horizontal, Vertical
+from textual.screen import ModalScreen, Screen
 from textual.widgets import Footer, TextArea
 
-from ibikus.appa.agora.config import AppConfig
+from ibikus.appa.agora.config import AppConfig, ConfigError
 from ibikus.appa.agora.context import Context, FileContextSource
 from ibikus.appa.agora.llm.factory import describe
 from ibikus.appa.agora.reflection.events import RunFinished, RunResult
+from ibikus.appa.agora.reflection.export import render_run_markdown
 from ibikus.appa.agora.reflection.service import ReflectionService
 
+from .dialogs import ConfigScreen, HelpScreen, ModelsScreen, ViewerScreen
 from .files_panel import FilesPanel
 from .run_feed import RunFeed
 from .status_bar import StatusBar
 
 ServiceFactory = Callable[[AppConfig], ReflectionService]
 
+_KEY_ORDER = ["f1", "f2", "f3", "f4", "f5", "f6", "f9", "f10", "escape"]
+
+
+class _MainScreen(Screen[None]):
+    """Default screen that lists bindings in Far order (F1..F10) in the footer.
+    Without it, keys also bound by the focused widget (TextArea binds F6) come first."""
+
+    @property
+    def active_bindings(self) -> dict[str, ActiveBinding]:
+        bindings = super().active_bindings
+        rank = {k: i for i, k in enumerate(_KEY_ORDER)}
+        return dict(sorted(bindings.items(), key=lambda kv: rank.get(kv[0], len(rank))))
+
 
 class AgoraApp(App[None]):
     TITLE = "Agora"
     CSS_PATH = "agora.tcss"
     BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("f1", "help", "Help", priority=True),
         Binding("f2", "run", "Run", priority=True),
-        Binding("ctrl+enter", "run", "Run", show=False, priority=True),
-        Binding("escape", "cancel", "Cancel", priority=True),
+        Binding("f3", "view", "View", priority=True),
+        Binding("f4", "show_config", "Config", priority=True),
+        Binding("f5", "copy_result", "Copy", priority=True),
+        Binding("f6", "save_result", "Save", priority=True),
+        Binding("f9", "models", "Models", priority=True),
         Binding("f10", "quit", "Quit", priority=True),
+        Binding("escape", "cancel", "Cancel", priority=True),
+        Binding("ctrl+enter", "run", "Run", show=False, priority=True),
     ]
 
     def __init__(
@@ -56,6 +79,9 @@ class AgoraApp(App[None]):
         self.last_context: Context | None = None
 
     # -- layout -------------------------------------------------------------------------------
+
+    def get_default_screen(self) -> Screen[None]:
+        return _MainScreen(id="_default")
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="main"):
@@ -91,10 +117,14 @@ class AgoraApp(App[None]):
         return FileContextSource(self.config.context, self.root)
 
     def rebuild_service(self, config: AppConfig) -> None:
-        """Swap config and service for this session only (YAML is never rewritten)."""
+        """Swap config and service for this session only (YAML is never rewritten).
+        Raises ConfigError and keeps the current service if the new one cannot be built."""
         self._service = self._service_factory(config)
         self.config = config
         self._refresh_status()
+
+    def _dialog_open(self) -> bool:
+        return isinstance(self.screen, ModalScreen)
 
     def on_files_panel_marked_changed(self, message: FilesPanel.MarkedChanged) -> None:
         ctx = self._context_source().load(sorted(message.marked))
@@ -109,6 +139,8 @@ class AgoraApp(App[None]):
     # -- actions ------------------------------------------------------------------------------
 
     def action_run(self) -> None:
+        if self._dialog_open():
+            return
         if self.run_in_progress:
             self.notify("A run is already in progress", severity="warning")
             return
@@ -129,8 +161,64 @@ class AgoraApp(App[None]):
         self._run(prompt, ctx, self._cancel)
 
     def action_cancel(self) -> None:
-        if self.run_in_progress and self._cancel is not None:
+        if self._dialog_open():
+            self.screen.dismiss(None)
+        elif self.run_in_progress and self._cancel is not None:
             self._cancel.set()
+
+    def _open(self, screen: ModalScreen[None]) -> None:
+        if not self._dialog_open():
+            self.push_screen(screen)
+
+    def _require_result(self) -> RunResult | None:
+        if self.last_result is None:
+            self.notify("Nothing to copy/save yet", severity="warning")
+        return self.last_result
+
+    def action_help(self) -> None:
+        self._open(HelpScreen())
+
+    def action_view(self) -> None:
+        if (result := self._require_result()) is not None:
+            self._open(ViewerScreen(result.final))
+
+    def action_show_config(self) -> None:
+        self._open(ConfigScreen(self.config))
+
+    def action_copy_result(self) -> None:
+        if self._dialog_open():
+            return
+        if (result := self._require_result()) is not None:
+            self.copy_to_clipboard(result.final)
+            self.notify("Copied")
+
+    def action_save_result(self) -> None:
+        if self._dialog_open():
+            return
+        if (result := self._require_result()) is not None:
+            now = datetime.now()
+            out_dir = self.root / "agora-runs"
+            out_dir.mkdir(exist_ok=True)
+            path = out_dir / f"{now:%Y%m%d-%H%M%S}.md"
+            path.write_text(render_run_markdown(self.last_prompt, result, now), encoding="utf-8")
+            self.notify(f"Saved to {path}")
+
+    def action_models(self) -> None:
+        if self._dialog_open():
+            return
+        if self.run_in_progress:
+            self.notify("Wait for the run to finish", severity="warning")
+            return
+
+        def apply(new_config: AppConfig | None) -> None:
+            if new_config is None:
+                return
+            try:
+                self.rebuild_service(new_config)
+            except ConfigError as e:
+                self.notify(str(e), severity="error", timeout=8)
+
+        self.push_screen(ModelsScreen(self.config), apply)
 
     @work(exclusive=True, group="run")
     async def _run(self, prompt: str, ctx: Context, cancel: asyncio.Event) -> None:

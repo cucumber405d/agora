@@ -19,3 +19,12 @@ def test_after_approved_run(snap_compare: Any, tmp_path: Path) -> None:
 
     app = make_app(make_project(tmp_path), drafts=["A short **answer**."])
     assert snap_compare(app, terminal_size=(100, 30), run_before=run)
+
+
+def test_help_screen(snap_compare: Any, tmp_path: Path) -> None:
+    async def help_(pilot: Pilot[Any]) -> None:
+        await wait_tree(pilot)
+        await pilot.press("f1")
+        await pilot.pause()
+
+    assert snap_compare(make_app(make_project(tmp_path)), terminal_size=(100, 30), run_before=help_)

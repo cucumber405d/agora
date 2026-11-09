@@ -78,3 +78,42 @@ Footer .footer-key--description {
     background: #008080;
     color: #000000;
 }
+
+/* Dialogs */
+ModalScreen {
+    align: center middle;
+    background: #000000 50%;
+}
+
+.dialog {
+    width: 80%;
+    max-width: 100;
+    height: auto;
+    max-height: 80%;
+    background: #008080;
+    color: #ffffff;
+    border: double #ffffff;
+    padding: 0 1;
+}
+
+#models .role {
+    grid-size: 2;
+    grid-columns: 14 1fr;
+    grid-rows: 3;
+    height: auto;
+}
+
+#models .role-title {
+    color: #ffff00;
+    margin-top: 1;
+}
+
+#models-error {
+    color: #ff5555;
+    height: auto;
+}
+
+#models-buttons {
+    height: 3;
+    align-horizontal: right;
+}
