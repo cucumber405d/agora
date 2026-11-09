@@ -81,3 +81,9 @@ def test_banner_env_set() -> None:
     import ibikus.appa.agora  # noqa: F401
 
     assert os.environ["PYDANTIC_AI_NO_BANNER"] == "1"
+
+
+def test_missing_prompt_file_exit_2(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    cfg = LOCAL_ONLY + "  prompts: {generator: nope.md}\n"
+    assert entry.main(["--config", _yaml(tmp_path, cfg)]) == 2
+    assert "reflection.prompts.generator" in capsys.readouterr().err

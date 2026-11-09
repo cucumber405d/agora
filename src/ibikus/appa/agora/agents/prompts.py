@@ -6,6 +6,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Literal
 
+from ibikus.appa.agora.config import ConfigError
 from ibikus.appa.agora.context import Context
 
 from .critic import Critique
@@ -16,7 +17,10 @@ REVISE_INSTRUCTION = "Revise the previous draft to address every issue in the cr
 def load_instructions(role: Literal["generator", "critic"], override: Path | None) -> str:
     """Instructions from the override file, or the built-in template for the role."""
     if override is not None:
-        return override.read_text(encoding="utf-8")
+        try:
+            return override.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as e:
+            raise ConfigError(f"reflection.prompts.{role}: cannot read {override}: {e}") from e
     return (resources.files(__package__) / "templates" / f"{role}.md").read_text(encoding="utf-8")
 
 

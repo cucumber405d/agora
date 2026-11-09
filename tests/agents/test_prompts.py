@@ -61,3 +61,12 @@ def test_override_instructions(tmp_path: Path) -> None:
 def test_builtin_instructions_non_empty() -> None:
     assert load_instructions("generator", None).strip()
     assert "score" in load_instructions("critic", None).lower()
+
+
+def test_missing_override_file_is_config_error(tmp_path: Path) -> None:
+    import pytest
+
+    from ibikus.appa.agora.config import ConfigError
+
+    with pytest.raises(ConfigError, match=r"reflection\.prompts\.critic"):
+        load_instructions("critic", tmp_path / "nope.md")

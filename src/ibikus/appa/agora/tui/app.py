@@ -155,6 +155,7 @@ class AgoraApp(App[None]):
                 severity="warning",
             )
         self.query_one(RunFeed).clear()
+        self.last_result = None  # F3/F5/F6 must never pair the new prompt with an old answer
         self.run_in_progress = True
         self._cancel = asyncio.Event()
         self.last_prompt, self.last_context = prompt, ctx
@@ -198,9 +199,15 @@ class AgoraApp(App[None]):
         if (result := self._require_result()) is not None:
             now = datetime.now()
             out_dir = self.root / "agora-runs"
-            out_dir.mkdir(exist_ok=True)
             path = out_dir / f"{now:%Y%m%d-%H%M%S}.md"
-            path.write_text(render_run_markdown(self.last_prompt, result, now), encoding="utf-8")
+            try:
+                out_dir.mkdir(exist_ok=True)
+                path.write_text(
+                    render_run_markdown(self.last_prompt, result, now), encoding="utf-8"
+                )
+            except OSError as e:
+                self.notify(f"Cannot save: {e}", severity="error", timeout=8)
+                return
             self.notify(f"Saved to {path}")
 
     def action_models(self) -> None:

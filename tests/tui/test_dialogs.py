@@ -123,3 +123,47 @@ async def test_run_key_ignored_while_dialog_open(tmp_path: Path) -> None:
         await pilot.press("f2")
         await pilot.pause()
         assert app.last_result is None and not app.run_in_progress
+
+
+async def test_f9_provider_switch_drops_base_url(tmp_path: Path) -> None:
+    app = make_app(make_project(tmp_path))
+    async with app.run_test(size=(100, 40)) as pilot:
+        await wait_tree(pilot)
+        await pilot.press("f9")
+        await pilot.pause()
+        app.screen.query_one("#gen-provider").value = "openai"  # type: ignore[attr-defined]
+        app.screen.query_one("#gen-name", Input).value = "gpt-4o-mini"
+        await pilot.click("#apply")
+        await pilot.pause()
+        gen = app.config.reflection.generator
+        assert (gen.provider, gen.name, gen.base_url) == ("openai", "gpt-4o-mini", None)
+
+
+async def test_f6_after_failed_run_does_not_save_stale_answer(tmp_path: Path) -> None:
+    from pydantic_ai.exceptions import ModelConnectionError
+
+    root = make_project(tmp_path)
+    app = make_app(root, drafts=["Answer", ModelConnectionError("m", "refused")])
+    async with app.run_test(size=(100, 30)) as pilot:
+        rec = NotifyRecorder(app)
+        await run_prompt(pilot, "Q1")
+        assert app.last_result is not None
+        app.query_one("#prompt").clear()  # type: ignore[attr-defined]
+        await run_prompt(pilot, "Q2")
+        await pilot.press("f6")
+        await pilot.pause()
+        assert "Nothing to copy/save yet" in rec.messages
+        assert not (root / "agora-runs").exists()
+
+
+async def test_f6_write_error_notifies_instead_of_crash(tmp_path: Path) -> None:
+    root = make_project(tmp_path)
+    (root / "agora-runs").write_text("not a directory", encoding="utf-8")
+    app = make_app(root)
+    async with app.run_test(size=(100, 30)) as pilot:
+        rec = NotifyRecorder(app)
+        await run_prompt(pilot, "Q")
+        await pilot.press("f6")
+        await pilot.pause()
+        assert any(m.startswith("Cannot save:") for m in rec.messages)
+        assert app.return_code is None

@@ -1,7 +1,7 @@
 # Agora MVP — reflection-агент с TUI в стиле Far
 
 - **Дата:** 2026-11-09
-- **Статус:** черновик, ждёт ревью
+- **Статус:** реализовано (MVP, ветка `feat/mvp`); ручной smoke на Windows и интеграционный тест с Ollama — за пользователем
 - **Цикл:** 1 из 5 (MVP)
 - **Пакет:** `ibikus.appa.agora`
 
@@ -93,8 +93,9 @@ generate --> critique --> route
 - **События.** Узлы отправляют `RunEvent` через custom stream mode LangGraph. Сервис отдаёт их
   наружу как async-итератор.
 - **Отмена.** Esc отменяет asyncio-task; сервис отправляет `RunFailed(reason="cancelled")`.
-- **Langfuse.** Один trace на прогон, один span на итерацию, одна generation на каждый вызов
-  модели. Метаданные: модель, температура, score.
+- **Langfuse.** Один trace на прогон, на каждую итерацию — span на фазу (`iteration-N/generate`,
+  `iteration-N/critique`; span не может пересечь два узла LangGraph), одна generation на каждый
+  вызов модели. Метаданные: модель, температура, score, approved.
 
 ## 5. TUI (Textual)
 

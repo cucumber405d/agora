@@ -7,7 +7,11 @@ Sources, highest priority first:
 3. Built-in defaults
 
 Partial overrides merge per field: setting only `reflection.critic.temperature` keeps the
-critic's default provider and model. Unknown fields are rejected.
+critic's default provider and model. This applies only while the provider stays the default
+one: when you switch a role to another provider, give its `name` (and `base_url` if needed)
+explicitly; nothing is inherited from the old provider. Unknown fields are rejected.
+
+Relative `reflection.prompts.*` paths are resolved against the current working directory.
 
 ## Fields
 

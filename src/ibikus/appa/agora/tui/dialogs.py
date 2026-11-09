@@ -100,7 +100,10 @@ class ModelsScreen(ModalScreen[AppConfig | None]):
 
     def _read(self, prefix: str, base: ModelConfig) -> ModelConfig:
         data = base.model_dump()
-        data["provider"] = self.query_one(f"#{prefix}-provider", Select).value
+        provider = self.query_one(f"#{prefix}-provider", Select).value
+        if provider != base.provider:
+            data["base_url"] = None  # an Ollama URL must not follow a switch to a cloud provider
+        data["provider"] = provider
         data["name"] = self.query_one(f"#{prefix}-name", Input).value.strip()
         data["temperature"] = self.query_one(f"#{prefix}-temp", Input).value.strip()
         return ModelConfig.model_validate(data)

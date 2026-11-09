@@ -74,3 +74,27 @@ def test_partial_yaml_model_override_keeps_role_defaults(tmp_path: Path) -> None
     gen = load_config(p, env={}).reflection.generator
     assert (gen.provider, gen.name, gen.temperature) == ("ollama", "qwen2.5:7b", 1.2)
     assert gen.base_url == "http://localhost:11434/v1"
+
+
+def test_yaml_provider_switch_drops_role_defaults(tmp_path: Path) -> None:
+    p = _write(
+        tmp_path / "a.yaml",
+        "reflection:\n  generator: {provider: openai, name: gpt-4o-mini, temperature: 0.7}\n",
+    )
+    gen = load_config(p, env={}).reflection.generator
+    assert (gen.provider, gen.name, gen.base_url) == ("openai", "gpt-4o-mini", None)
+
+
+def test_env_provider_switch_drops_role_defaults(tmp_path: Path) -> None:
+    env = {
+        "AGORA_REFLECTION__GENERATOR__PROVIDER": "openai",
+        "AGORA_REFLECTION__GENERATOR__NAME": "gpt-4o-mini",
+        "AGORA_REFLECTION__GENERATOR__TEMPERATURE": "0.7",
+    }
+    assert load_config(env=env, cwd=tmp_path).reflection.generator.base_url is None
+
+
+def test_provider_switch_requires_name(tmp_path: Path) -> None:
+    p = _write(tmp_path / "a.yaml", "reflection:\n  critic: {provider: ollama, temperature: 0.1}\n")
+    with pytest.raises(ConfigError, match=r"reflection\.critic\.name"):
+        load_config(p, env={})

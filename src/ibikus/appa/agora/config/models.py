@@ -6,7 +6,7 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_settings import (
     BaseSettings,
     EnvSettingsSource,
@@ -65,6 +65,26 @@ class ReflectionConfig(_Strict):
     critic: ModelConfig = Field(default_factory=_default_critic)
     prompts: PromptsConfig = Field(default_factory=PromptsConfig)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _fill_role_defaults(cls, data: Any) -> Any:
+        """Partial overrides (e.g. only critic.temperature) keep the role's defaults, but only
+        while the provider stays the default one: switching provider must not inherit the old
+        model name or Ollama base_url."""
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        for role, default_factory in (
+            ("generator", _default_generator),
+            ("critic", _default_critic),
+        ):
+            given = data.get(role)
+            if isinstance(given, dict):
+                default = default_factory().model_dump(exclude_none=True)
+                if given.get("provider", default["provider"]) == default["provider"]:
+                    data[role] = {**default, **given}
+        return data
+
 
 class ContextConfig(_Strict):
     max_file_kb: int = Field(256, ge=1)
@@ -95,22 +115,6 @@ class _MappingEnvSource(EnvSettingsSource):
         return {k.lower(): v for k, v in self._mapping.items()}
 
 
-class _RoleDefaultsSource(PydanticBaseSettingsSource):
-    """Lowest-priority source with per-role model defaults, so partial overrides
-    (e.g. only critic.temperature) deep-merge instead of replacing the whole model."""
-
-    def get_field_value(self, field: Any, field_name: str) -> tuple[Any, str, bool]:
-        return None, field_name, False
-
-    def __call__(self) -> dict[str, Any]:
-        return {
-            "reflection": {
-                "generator": _default_generator().model_dump(exclude_none=True),
-                "critic": _default_critic().model_dump(exclude_none=True),
-            }
-        }
-
-
 class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="AGORA_",
@@ -137,5 +141,4 @@ class AppConfig(BaseSettings):
         yaml_path = _yaml_path.get()
         if yaml_path is not None:
             sources.append(YamlConfigSettingsSource(settings_cls, yaml_file=yaml_path))
-        sources.append(_RoleDefaultsSource(settings_cls))
         return tuple(sources)
