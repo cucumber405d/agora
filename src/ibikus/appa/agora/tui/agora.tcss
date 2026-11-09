@@ -1,0 +1,80 @@
+/* Classic Far Manager palette */
+Screen {
+    background: #000080;
+    color: #c0c0c0;
+}
+
+#main {
+    height: 1fr;
+}
+
+#files {
+    width: 32;
+    background: #000080;
+    border: double #00ffff;
+    border-title-color: #ffffff;
+    border-subtitle-color: #ffff00;
+}
+
+#files > .tree--cursor {
+    background: #008080;
+    color: #000000;
+}
+
+#right {
+    width: 1fr;
+}
+
+#prompt {
+    height: 8;
+    background: #000080;
+    color: #ffffff;
+    border: double #00ffff;
+    border-title-color: #ffffff;
+}
+
+#feed {
+    height: 1fr;
+    background: #000080;
+    border: double #00ffff;
+    border-title-color: #ffffff;
+}
+
+#feed Collapsible {
+    background: #000080;
+    border-top: none;
+    padding-left: 0;
+}
+
+#feed .critique {
+    color: #00ffff;
+}
+
+#feed .final {
+    color: #ffff00;
+    margin-bottom: 1;
+}
+
+#feed .error {
+    color: #ff5555;
+}
+
+#status {
+    height: 1;
+    background: #008080;
+    color: #000000;
+}
+
+Footer {
+    background: #000000;
+}
+
+Footer .footer-key--key {
+    background: #000000;
+    color: #ffffff;
+}
+
+Footer .footer-key--description {
+    background: #008080;
+    color: #000000;
+}
