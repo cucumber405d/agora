@@ -1,100 +1,100 @@
-# Agora MVP — Reflection Agent with Far-style TUI
+# Agora MVP — reflection-агент с TUI в стиле Far
 
-- **Date:** 2026-11-09
-- **Status:** Draft, awaiting review
-- **Cycle:** 1 of 5 (MVP)
-- **Package:** `ibikus.appa.agora`
+- **Дата:** 2026-11-09
+- **Статус:** черновик, ждёт ревью
+- **Цикл:** 1 из 5 (MVP)
+- **Пакет:** `ibikus.appa.agora`
 
-## 1. Goal
+## 1. Цель
 
-Agora is the agentic / multi-agent module of the Appa platform. This first cycle covers only the
-core: a **reflection agent** that answers a user prompt using attached context. A *generator*
-model with a high temperature writes a draft, and a *critic* model with a low temperature
-(the same model or another one) reviews it. The loop runs until the critic approves the draft
-or the iteration limit is reached. Everything is configurable.
+Agora — agentic- и мультиагентный модуль платформы Appa. Первый цикл покрывает только ядро:
+**reflection-агент** отвечает на промпт пользователя с учётом подключённого контекста. Модель-*генератор*
+с высокой температурой пишет черновик, модель-*критик* с низкой температурой (та же или другая)
+его оценивает. Цикл повторяется, пока критик не одобрит черновик или пока не кончится лимит итераций.
+Всё настраивается через конфиг.
 
-The app runs as a **text console application in Far Manager / GoldED style** (Textual TUI).
+Приложение — **текстовое консольное в стиле Far Manager / GoldED** (TUI на Textual).
 
-It is also a portfolio piece, so clean layering, tests, CI and docs-as-code are part of the scope.
+Проект одновременно портфолио, поэтому чистые слои, тесты, CI и docs-as-code входят в объём.
 
-### Roadmap (out of scope here; each cycle gets its own spec)
+### Roadmap (вне объёма этой spec, на каждый цикл — своя spec)
 
-1. **MVP** (this spec): reflection loop, config, TUI, Langfuse tracing, tests
-2. RAG + ChromaDB as a context source
-3. Memory layer (PostgreSQL), session history
+1. **MVP** (эта spec): reflection-цикл, конфиг, TUI, трейсинг в Langfuse, тесты
+2. RAG + ChromaDB как источник контекста
+3. Memory layer (PostgreSQL), история сессий
 4. Tool calling / MCP
-5. FastAPI layer, Docker/K8s, multi-agent scenarios
+5. Слой FastAPI, Docker/K8s, мультиагентные сценарии
 
-## 2. Decisions
+## 2. Решения
 
-| Topic | Decision |
+| Тема | Решение |
 |---|---|
-| UI | Textual TUI, Far/GoldED look (blue theme, panels, F-key bar) |
-| UI and code-comment language | English |
-| LLM providers | Configurable per role: Ollama (local), Anthropic, OpenAI, OpenRouter |
-| Stop criterion | Structured `Critique` verdict: `approved` or `score >= threshold`, capped by `max_iterations` |
-| Context | Prompt + local files picked in a Far-like file panel |
-| Observability | Langfuse, self-hosted via `docker compose`; optional (no keys → no-op) |
-| Orchestration | LangGraph `StateGraph`; each node wraps a Pydantic AI agent |
+| UI | Textual TUI, вид Far/GoldED (синяя тема, панели, строка F-клавиш) |
+| Язык UI и комментариев в коде | английский |
+| LLM-провайдеры | настраиваются для каждой роли отдельно: Ollama (локально), Anthropic, OpenAI, OpenRouter |
+| Критерий остановки | структурированный вердикт `Critique`: `approved` или `score >= threshold`, но не больше `max_iterations` |
+| Контекст | промпт + локальные файлы, выбранные в файловой панели в духе Far |
+| Observability | Langfuse, self-hosted через `docker compose`; опционально (нет ключей → no-op) |
+| Оркестрация | LangGraph `StateGraph`; каждый узел — обёртка над агентом Pydantic AI |
 
-## 3. Architecture
+## 3. Архитектура
 
-Dependencies only point downward. The core does not know about the UI.
+Зависимости идут только вниз. Ядро ничего не знает про UI.
 
 ```
 src/ibikus/appa/agora/
-├── config/        # pydantic-settings: AppConfig, ModelConfig, ReflectionConfig; YAML + .env loading
-├── llm/           # model factory: ModelConfig -> pydantic_ai Model (ollama/anthropic/openai/openrouter)
-├── agents/        # generator.py, critic.py (Pydantic AI agents); prompt templates
+├── config/        # pydantic-settings: AppConfig, ModelConfig, ReflectionConfig; загрузка YAML + .env
+├── llm/           # фабрика моделей: ModelConfig -> pydantic_ai Model (ollama/anthropic/openai/openrouter)
+├── agents/        # generator.py, critic.py (агенты Pydantic AI); шаблоны промптов
 ├── reflection/    # state.py (ReflectionState), graph.py (StateGraph), events.py (RunEvent), service.py
-├── context/       # ContextSource protocol; FileContextSource (size/token limits, extensions)
-├── observability/ # Langfuse init; no-op when not configured
-├── tui/           # Textual app: screens, panels, keybindings, .tcss
+├── context/       # протокол ContextSource; FileContextSource (лимиты размера/токенов, расширения)
+├── observability/ # инициализация Langfuse; no-op, если не настроен
+├── tui/           # приложение Textual: экраны, панели, keybindings, .tcss
 └── __main__.py    # `agora [--config PATH]`
 tests/  docs/  config/agora.yaml  prompts/  docker/langfuse/compose.yaml  pyproject.toml
 ```
 
-### 3.1 Data model
+### 3.1 Модель данных
 
-- `ModelConfig`: `provider`, `name`, `temperature`, `max_tokens`, `base_url?`. API keys come only from env.
-- `ReflectionConfig`: `generator: ModelConfig`, `critic: ModelConfig`, `max_iterations`, `approve_threshold`, prompt paths.
-- `Critique` (critic output type): `approved: bool`, `score: int (0..10)`, `issues: list[str]`, `suggestions: list[str]`.
+- `ModelConfig`: `provider`, `name`, `temperature`, `max_tokens`, `base_url?`. API-ключи — только из env.
+- `ReflectionConfig`: `generator: ModelConfig`, `critic: ModelConfig`, `max_iterations`, `approve_threshold`, пути к промптам.
+- `Critique` (тип вывода критика): `approved: bool`, `score: int (0..10)`, `issues: list[str]`, `suggestions: list[str]`.
 - `ReflectionState`: `prompt`, `context`, `iteration`, `drafts[]`, `critiques[]`, `final`, `status`.
 - `RunEvent` (discriminated union): `IterationStarted`, `DraftChunk`, `DraftDone`, `CritiqueDone`, `RunFinished`, `RunFailed`.
 
-### 3.2 Service facade
+### 3.2 Сервис-фасад
 
-`ReflectionService.run(prompt: str, context: Context) -> AsyncIterator[RunEvent]` is the only
-entry point to the core. The TUI uses it now; FastAPI will use it in cycle 5.
+`ReflectionService.run(prompt: str, context: Context) -> AsyncIterator[RunEvent]` — единственная
+точка входа в ядро. Сейчас его вызывает TUI, в цикле 5 — FastAPI.
 
-### 3.3 Tooling
+### 3.3 Инструменты
 
-Python 3.12, `uv`, `ruff` (lint + format), `pytest` + `pytest-asyncio`, `mypy --strict` for the
-core packages, GitHub Actions CI.
+Python 3.12, `uv`, `ruff` (lint + format), `pytest` + `pytest-asyncio`, `mypy --strict` для пакетов
+ядра, CI на GitHub Actions.
 
-## 4. Reflection graph
+## 4. Reflection-граф
 
 ```
 generate --> critique --> route
    ^                        |
-   |-- not approved, iter < max
-                            |-- approved or score >= threshold --> finalize (status=approved)
+   |-- не одобрено, iter < max
+                            |-- approved или score >= threshold --> finalize (status=approved)
                             |-- iter >= max_iterations          --> finalize (status=max_iterations)
 ```
 
-- **generate.** On iteration 1 the input is the system prompt, then the context (each file under
-  a `### file: <path>` header), then the user request. From iteration 2 on, the previous draft
-  and its critique are added, with an instruction to revise the draft against the critique.
-  Tokens are streamed as `DraftChunk` events.
-- **critique.** The critic sees the request, the context and the draft, and must return a
-  `Critique`. Pydantic AI output retries: 2.
-- **finalize.** With `approved`, the result is the last draft. With `max_iterations`, it is the
-  draft with the **highest score** (on a tie, the latest one).
-- **Events.** Nodes emit `RunEvent`s through the LangGraph custom stream mode. The service
-  re-exposes them as an async iterator.
-- **Cancellation.** Esc cancels the asyncio task; the service emits `RunFailed(reason="cancelled")`.
-- **Langfuse.** One trace per run, one span per iteration, one generation per model call.
-  Metadata: model, temperature, score.
+- **generate.** На итерации 1 на вход идут системный промпт, контекст (каждый файл под
+  заголовком `### file: <path>`) и запрос пользователя. Начиная с итерации 2 добавляются
+  предыдущий черновик и его критика с инструкцией доработать черновик по замечаниям.
+  Токены стримятся событиями `DraftChunk`.
+- **critique.** Критик видит запрос, контекст и черновик и обязан вернуть `Critique`.
+  Output retries Pydantic AI: 2.
+- **finalize.** При `approved` результат — последний черновик. При `max_iterations` — черновик
+  с **наибольшим score** (при равенстве — более поздний).
+- **События.** Узлы отправляют `RunEvent` через custom stream mode LangGraph. Сервис отдаёт их
+  наружу как async-итератор.
+- **Отмена.** Esc отменяет asyncio-task; сервис отправляет `RunFailed(reason="cancelled")`.
+- **Langfuse.** Один trace на прогон, один span на итерацию, одна generation на каждый вызов
+  модели. Метаданные: модель, температура, score.
 
 ## 5. TUI (Textual)
 
@@ -111,25 +111,27 @@ generate --> critique --> route
  F1 Help F2 Run F3 View F4 Config F5 Copy F6 Save F9 Models F10 Quit  Esc Cancel
 ```
 
-- **Files panel:** browser rooted at the working directory. `Space`/`Ins` marks a file. The footer
-  shows the file count and the estimated context tokens.
-- **Prompt editor:** multi-line. `Ctrl+Enter` or `F2` starts a run.
-- **Run feed:** one collapsible block per iteration, with the streaming draft and the critique
-  (score, issues). The final answer is highlighted.
-- **Status line:** the active models, their temperatures, and the Langfuse state.
-- **Keys:** `F1` help · `F2` run · `F3` full-screen Markdown viewer for the final answer ·
-  `F4` read-only config view · `F5` copy the final answer · `F6` save the final answer plus the
-  iteration history as Markdown · `F9` model/temperature dialog (session only, YAML is never
-  rewritten) · `F10` quit · `Esc` cancel the run.
-- Classic Far blue theme in `.tcss`. Works in Windows Terminal and WSL2. Mouse is supported, but
-  every action is reachable from the keyboard.
+Все надписи интерфейса — на английском.
 
-## 6. Configuration
+- **Панель файлов:** браузер с корнем в рабочей директории. `Space`/`Ins` отмечает файл.
+  Внизу видны число файлов и оценка токенов контекста.
+- **Редактор промпта:** многострочный. Прогон запускается по `Ctrl+Enter` или `F2`.
+- **Лента прогона:** по сворачиваемому блоку на итерацию, в нём стримящийся черновик и критика
+  (score, issues). Итоговый ответ подсвечен.
+- **Статус-строка:** активные модели, их температуры и состояние Langfuse.
+- **Клавиши:** `F1` справка · `F2` запуск · `F3` полноэкранный Markdown-просмотр итога ·
+  `F4` просмотр конфига (только чтение) · `F5` копировать итог · `F6` сохранить итог вместе
+  с историей итераций в Markdown · `F9` диалог моделей и температур (только на сессию, YAML
+  не перезаписывается) · `F10` выход · `Esc` отмена прогона.
+- Классическая синяя тема Far в `.tcss`. Работает в Windows Terminal и WSL2. Мышь поддерживается,
+  но любое действие доступно с клавиатуры.
 
-Precedence (highest first): env `AGORA_*` (nested fields use `__`) > file from `--config` >
-`AGORA_CONFIG` > `./config/agora.yaml` > built-in defaults.
-Secrets (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `LANGFUSE_*`) are read only
-from env or `.env` and never from YAML.
+## 6. Конфигурация
+
+Приоритет (от высшего к низшему): env `AGORA_*` (вложенные поля через `__`) > файл из `--config` >
+`AGORA_CONFIG` > `./config/agora.yaml` > встроенные дефолты.
+Секреты (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `LANGFUSE_*`) читаются только
+из env или `.env`, никогда из YAML.
 
 ```yaml
 reflection:
@@ -139,43 +141,44 @@ reflection:
   critic:    { provider: anthropic, name: claude-haiku-4-5, temperature: 0.1 }
   prompts:   { generator: prompts/generator.md, critic: prompts/critic.md }
 context: { max_file_kb: 256, max_total_tokens: 32000, allowed_ext: [.md, .txt, .py, .java, .yaml, .json] }
-observability: { langfuse: { enabled: auto } }   # auto = on when keys are present
+observability: { langfuse: { enabled: auto } }   # auto = включено, если есть ключи
 ```
 
-## 7. Error handling
+## 7. Обработка ошибок
 
-| Situation | Behaviour |
+| Ситуация | Поведение |
 |---|---|
-| Invalid config | Readable pydantic error that names the field; printed before the TUI starts; exit code 2 |
-| Provider down / timeout / 429 | 3 retries with backoff, then `RunFailed`, shown in the run feed; the app keeps running |
-| Critic output invalid | Output retries, then `RunFailed(reason="critic_invalid")` |
-| Context over limit | Warning in the files panel; files over the limit are not sent |
-| Langfuse unreachable | Warning in the log only; no functional impact |
-| Logging | `~/.agora/logs/agora.log` (never stdout, so the TUI is not corrupted) |
+| Невалидный конфиг | понятная ошибка pydantic с именем поля; выводится до старта TUI; exit code 2 |
+| Провайдер недоступен / таймаут / 429 | 3 ретрая с backoff, затем `RunFailed` в ленте; приложение продолжает работать |
+| Невалидный вывод критика | output retries, затем `RunFailed(reason="critic_invalid")` |
+| Контекст превышает лимит | предупреждение в панели файлов; файлы сверх лимита не отправляются |
+| Langfuse недоступен | только warning в лог; на работу не влияет |
+| Логирование | `~/.agora/logs/agora.log` (никогда не в stdout, чтобы не ломать TUI) |
 
-## 8. Testing (TDD)
+## 8. Тестирование (TDD)
 
-- **Unit:** config loading, env override, validation; model factory; prompt assembly;
-  `FileContextSource` limits and extensions; graph routing.
-- **Graph:** run with `pydantic_ai.models.test.TestModel` / `FunctionModel`, no network.
-  Scenarios: approved on iteration 1; improves until it reaches the threshold; hits the limit and
-  picks the best draft; critic output invalid; cancellation.
-- **TUI:** Textual `App.run_test()` + `Pilot` (mark a file, type a prompt, press F2, assert the
-  events in the feed); snapshot tests with `pytest-textual-snapshot`.
-- **Integration:** real Ollama tests marked `@pytest.mark.integration`, skipped by default.
-- **CI:** `ruff check`, `ruff format --check`, `mypy`, `pytest` on GitHub Actions.
+- **Unit:** загрузка конфига, переопределение через env, валидация; фабрика моделей; сборка
+  промптов; лимиты и расширения `FileContextSource`; роутинг графа.
+- **Граф:** прогон на `pydantic_ai.models.test.TestModel` / `FunctionModel`, без сети.
+  Сценарии: одобрено на итерации 1; улучшение до порога; исчерпание лимита с выбором лучшего
+  черновика; невалидный вывод критика; отмена.
+- **TUI:** Textual `App.run_test()` + `Pilot` (отметить файл, ввести промпт, нажать F2,
+  проверить события в ленте); snapshot-тесты через `pytest-textual-snapshot`.
+- **Интеграционные:** тесты с реальным Ollama помечены `@pytest.mark.integration`, по умолчанию
+  пропускаются.
+- **CI:** `ruff check`, `ruff format --check`, `mypy`, `pytest` на GitHub Actions.
 
-## 9. Project conventions
+## 9. Конвенции проекта
 
-- The UI text and all source-code comments are in **English**.
-- **Docs as code:** `docs/start.md` (build/run commands), `docs/architecture.md`,
+- **Языки:** UI и комментарии в коде — английский; specs и планы — русский; брифы — английский.
+- **Docs as code:** `docs/start.md` (команды сборки и запуска), `docs/architecture.md`,
   `docs/configuration.md`, `docs/troubleshooting.md`.
-- **Impacts:** every feature, fix or bug gets an entry in `docs/impacts/`, in **Russian and
-  English**. One file per change: `docs/impacts/YYYY-MM-DD-<slug>.md`, with sections
-  `## RU` and `## EN`, each covering *what changed*, *why*, and *impact* (user-visible effects,
-  config changes, migration notes).
+- **Impacts:** каждая фича, фикс или баг получает запись в `docs/impacts/` на **русском и
+  английском**. Один файл на изменение: `docs/impacts/YYYY-MM-DD-<slug>.md`, разделы `## RU`
+  и `## EN`; в каждом — *что изменилось*, *зачем* и *влияние* (что заметно пользователю,
+  изменения конфига, заметки по миграции).
 
-## 10. Out of scope (YAGNI)
+## 10. Вне объёма (YAGNI)
 
-RAG, cross-session memory, tools/MCP, FastAPI, K8s, persisting sessions to a DB, editing the YAML
-from the TUI.
+RAG, память между сессиями, tools/MCP, FastAPI, K8s, хранение сессий в БД, редактирование YAML
+из TUI.
