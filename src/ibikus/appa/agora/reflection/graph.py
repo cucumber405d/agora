@@ -14,6 +14,7 @@ from pydantic_ai.settings import ModelSettings
 from ibikus.appa.agora.agents.critic import Critique
 from ibikus.appa.agora.agents.prompts import build_critic_input, build_generator_input
 from ibikus.appa.agora.config import ReflectionConfig
+from ibikus.appa.agora.observability.langfuse import NoopObservability, Observability
 
 from .events import (
     CritiqueDone,
@@ -75,8 +76,11 @@ def to_result(state: ReflectionState, cfg: ReflectionConfig) -> RunResult:
     )
 
 
-def build_graph(agents: Agents, cfg: ReflectionConfig) -> Any:
+def build_graph(
+    agents: Agents, cfg: ReflectionConfig, observability: Observability | None = None
+) -> Any:
     """Compile the reflection graph. Nodes emit RunEvents via the custom stream mode."""
+    obs: Observability = observability or NoopObservability()
 
     async def generate(state: ReflectionState) -> dict[str, Any]:
         write = get_stream_writer()
@@ -86,23 +90,30 @@ def build_graph(agents: Agents, cfg: ReflectionConfig) -> Any:
         critique = state["critiques"][-1] if state["critiques"] else None
         user_input = build_generator_input(state["prompt"], state["context"], previous, critique)
         parts: list[str] = []
-        async with agents.generator.run_stream(
-            user_input, model_settings=agents.generator_settings
-        ) as result:
-            async for delta in result.stream_text(delta=True, debounce_by=None):
-                parts.append(delta)
-                write(DraftChunk(iteration=n, text=delta))
-        draft = "".join(parts)
+        with obs.iteration_span(n, "generate") as span:
+            async with agents.generator.run_stream(
+                user_input, model_settings=agents.generator_settings
+            ) as result:
+                async for delta in result.stream_text(delta=True, debounce_by=None):
+                    parts.append(delta)
+                    write(DraftChunk(iteration=n, text=delta))
+            draft = "".join(parts)
+            span.update(output=draft)
         write(DraftDone(iteration=n, text=draft))
         return {"iteration": n, "drafts": [*state["drafts"], draft]}
 
     async def critique(state: ReflectionState) -> dict[str, Any]:
         write = get_stream_writer()
         user_input = build_critic_input(state["prompt"], state["context"], state["drafts"][-1])
-        try:
-            run = await agents.critic.run(user_input, model_settings=agents.critic_settings)
-        except UnexpectedModelBehavior as e:
-            raise CriticInvalidError(str(e)) from e
+        with obs.iteration_span(state["iteration"], "critique") as span:
+            try:
+                run = await agents.critic.run(user_input, model_settings=agents.critic_settings)
+            except UnexpectedModelBehavior as e:
+                raise CriticInvalidError(str(e)) from e
+            span.update(
+                output=run.output.model_dump(),
+                metadata={"score": run.output.score, "approved": run.output.approved},
+            )
         write(CritiqueDone(iteration=state["iteration"], critique=run.output))
         return {"critiques": [*state["critiques"], run.output]}
 

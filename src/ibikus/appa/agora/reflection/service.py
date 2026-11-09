@@ -15,7 +15,8 @@ from ibikus.appa.agora.agents.generator import build_generator
 from ibikus.appa.agora.agents.prompts import load_instructions
 from ibikus.appa.agora.config import AppConfig
 from ibikus.appa.agora.context import Context
-from ibikus.appa.agora.llm.factory import build_model, build_settings
+from ibikus.appa.agora.llm.factory import build_model, build_settings, describe
+from ibikus.appa.agora.observability.langfuse import NoopObservability, Observability
 
 from .events import RunEvent, RunFailed, RunFinished
 from .graph import Agents, CriticInvalidError, build_graph, to_result
@@ -67,10 +68,16 @@ def _to_failure(error: BaseException) -> RunFailed:
 
 
 class ReflectionService:
-    def __init__(self, config: AppConfig, agents: Agents | None = None) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        agents: Agents | None = None,
+        observability: Observability | None = None,
+    ) -> None:
         self._config = config
+        self._obs: Observability = observability or NoopObservability()
         self._agents = agents if agents is not None else build_agents(config)
-        self._graph = build_graph(self._agents, config.reflection)
+        self._graph = build_graph(self._agents, config.reflection, self._obs)
 
     @property
     def config(self) -> AppConfig:
@@ -86,18 +93,27 @@ class ReflectionService:
 
         queue: asyncio.Queue[_QueueItem] = asyncio.Queue()
 
+        r = self._config.reflection
+        span_meta = {"generator": describe(r.generator), "critic": describe(r.critic)}
+
         async def pump() -> None:
             try:
-                state = None
-                async for mode, payload in self._graph.astream(
-                    initial_state(prompt, context), stream_mode=["custom", "values"]
-                ):
-                    if mode == "custom":
-                        queue.put_nowait(payload)
-                    else:
-                        state = payload
-                assert state is not None
-                queue.put_nowait(RunFinished(result=to_result(state, self._config.reflection)))
+                with self._obs.run_span(prompt, span_meta) as span:
+                    state = None
+                    async for mode, payload in self._graph.astream(
+                        initial_state(prompt, context), stream_mode=["custom", "values"]
+                    ):
+                        if mode == "custom":
+                            queue.put_nowait(payload)
+                        else:
+                            state = payload
+                    assert state is not None
+                    result = to_result(state, r)
+                    span.update(
+                        output=result.final,
+                        metadata={"status": result.status, "iterations": result.iterations},
+                    )
+                queue.put_nowait(RunFinished(result=result))
             except asyncio.CancelledError:
                 raise
             except Exception as e:
