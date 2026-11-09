@@ -1,0 +1,26 @@
+# Agora configuration. Every field can be overridden by env: AGORA_<SECTION>__<FIELD>,
+# e.g. AGORA_REFLECTION__CRITIC__TEMPERATURE=0.2. API keys live in .env, never here.
+reflection:
+  max_iterations: 3
+  approve_threshold: 8
+  generator:
+    provider: ollama
+    name: qwen2.5:7b
+    temperature: 0.9
+    base_url: http://localhost:11434/v1
+  critic:
+    provider: anthropic
+    name: claude-haiku-4-5
+    temperature: 0.1
+  # prompts:                     # optional; built-in templates are used when omitted
+  #   generator: prompts/generator.md
+  #   critic: prompts/critic.md
+
+context:
+  max_file_kb: 256
+  max_total_tokens: 32000
+  allowed_ext: [.md, .txt, .py, .java, .yaml, .json]
+
+observability:
+  langfuse:
+    enabled: auto                # auto = on when LANGFUSE_PUBLIC_KEY/SECRET_KEY are set

@@ -95,30 +95,44 @@ def test_defaults_when_no_file(tmp_path):
     cfg = load_config(env={}, cwd=tmp_path)
     assert cfg.reflection.max_iterations == 3
     assert cfg.reflection.approve_threshold == 8
-    assert (cfg.reflection.generator.provider, cfg.reflection.generator.name) == ("ollama", "qwen2.5:7b")
+    assert (cfg.reflection.generator.provider, cfg.reflection.generator.name) == (
+        "ollama",
+        "qwen2.5:7b",
+    )
     assert cfg.reflection.generator.temperature == 0.9
-    assert cfg.reflection.critic.provider == "anthropic" and cfg.reflection.critic.temperature == 0.1
+    assert (
+        cfg.reflection.critic.provider == "anthropic" and cfg.reflection.critic.temperature == 0.1
+    )
     assert cfg.context.allowed_ext == [".md", ".txt", ".py", ".java", ".yaml", ".json"]
     assert cfg.observability.langfuse.enabled == "auto"
 
-def test_explicit_path_wins_over_agora_config_env_and_cwd(tmp_path): ...
+
+def test_explicit_path_wins_over_agora_config_env_and_cwd(tmp_path):
+    ...
     # cwd/config/agora.yaml: max_iterations 4; file from AGORA_CONFIG: 5; explicit path: 6 -> 6
     # без explicit -> 5; без AGORA_CONFIG -> 4
+
 
 def test_env_overrides_yaml(tmp_path):
     # yaml: reflection.critic.temperature 0.3; env AGORA_REFLECTION__CRITIC__TEMPERATURE=0.2
     assert cfg.reflection.critic.temperature == 0.2
 
+
 def test_api_key_in_yaml_is_rejected(tmp_path):
     # yaml: reflection.critic.api_key: "x"
-    with pytest.raises(ConfigError, match=r"reflection\.critic\.api_key"): ...
+    with pytest.raises(ConfigError, match=r"reflection\.critic\.api_key"):
+        ...
+
 
 def test_invalid_value_names_field(tmp_path):
     # yaml: reflection.approve_threshold: 11
-    with pytest.raises(ConfigError, match=r"reflection\.approve_threshold"): ...
+    with pytest.raises(ConfigError, match=r"reflection\.approve_threshold"):
+        ...
+
 
 def test_missing_explicit_file_raises(tmp_path):
-    with pytest.raises(ConfigError, match="not found"): load_config(tmp_path / "nope.yaml", env={})
+    with pytest.raises(ConfigError, match="not found"):
+        load_config(tmp_path / "nope.yaml", env={})
 ```
 
 - [ ] **Step 3: проверить, что тесты падают.** `uv run pytest tests/config -v` → FAIL (ImportError).
