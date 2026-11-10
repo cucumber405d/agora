@@ -31,6 +31,7 @@ HELP_ROWS = [
     ("Ctrl+R", "Re-read the file panel from disk"),
     ("Ctrl+L", "Show / hide the progress panel"),
     ("Enter (LLM log)", "Open the full request / response text"),
+    ("F7, Ctrl+C", "In text windows: select all, copy selection"),
     ("Backspace / Ctrl+PgUp", "File panel: go to the parent directory"),
 ]
 

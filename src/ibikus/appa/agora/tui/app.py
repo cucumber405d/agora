@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
 from typing import ClassVar
 
+import pyperclip
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import ActiveBinding, Binding, BindingType
@@ -29,6 +31,8 @@ from .llm_log import LlmLog
 from .progress import ProgressPanel
 from .run_feed import RunFeed
 from .status_bar import StatusBar
+
+logger = logging.getLogger(__name__)
 
 ServiceFactory = Callable[[AppConfig], ReflectionService]
 HealthCheck = Callable[[AppConfig], Awaitable[list[HealthIssue]]]
@@ -174,6 +178,16 @@ class AgoraApp(App[None]):
         elif choice == "models":
             self.action_models()
 
+    def copy_to_clipboard(self, text: str) -> None:
+        """Copy via OSC 52 (Textual) and via the system clipboard: terminals such as Git Bash
+        (mintty) ignore OSC 52 by default, so the text would otherwise never reach Windows."""
+        super().copy_to_clipboard(text)
+        try:
+            pyperclip.copy(text)
+        except pyperclip.PyperclipException:
+            logger.debug("System clipboard not available; relying on OSC 52", exc_info=True)
+        self.notify(f"Copied {len(text)} characters")
+
     def _dialog_open(self) -> bool:
         return isinstance(self.screen, ModalScreen)
 
@@ -250,7 +264,6 @@ class AgoraApp(App[None]):
             return
         if (result := self._require_result()) is not None:
             self.copy_to_clipboard(result.final)
-            self.notify("Copied")
 
     def action_save_result(self) -> None:
         if self._dialog_open():

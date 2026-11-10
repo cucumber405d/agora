@@ -16,6 +16,7 @@ dependencies = [
     { name = "langgraph" },
     { name = "pydantic-ai-slim", extra = ["anthropic", "openai"] },
     { name = "pydantic-settings", extra = ["yaml"] },
+    { name = "pyperclip" },
     { name = "python-dotenv" },
     { name = "textual" },
 ]
@@ -27,6 +28,7 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-textual-snapshot" },
     { name = "ruff" },
+    { name = "types-pyperclip" },
     { name = "types-pyyaml" },
 ]
 
@@ -37,6 +39,7 @@ requires-dist = [
     { name = "langgraph", specifier = ">=1.2,<1.3" },
     { name = "pydantic-ai-slim", extras = ["openai", "anthropic"], specifier = ">=2.66,<2.67" },
     { name = "pydantic-settings", extras = ["yaml"], specifier = ">=2.16,<2.17" },
+    { name = "pyperclip", specifier = ">=1.9" },
     { name = "python-dotenv", specifier = ">=1.0" },
     { name = "textual", specifier = ">=8.2,<8.3" },
 ]
@@ -48,6 +51,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=1.4,<1.5" },
     { name = "pytest-textual-snapshot", specifier = ">=1.1,<1.2" },
     { name = "ruff", specifier = ">=0.17,<0.18" },
+    { name = "types-pyperclip" },
     { name = "types-pyyaml" },
 ]
 
@@ -1535,6 +1539,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pyperclip"
+version = "1.11.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e8/52/d87eba7cb129b81563019d1679026e7a112ef76855d6159d24754dbd2a51/pyperclip-1.11.0.tar.gz", hash = "sha256:244035963e4428530d9e3a6101a1ef97209c6825edab1567beac148ccc1db1b6", size = 12185, upload-time = "2025-09-26T14:40:37.245Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/df/80/fc9d01d5ed37ba4c42ca2b55b4339ae6e200b456be3a1aaddf4a9fa99b8c/pyperclip-1.11.0-py3-none-any.whl", hash = "sha256:299403e9ff44581cb9ba2ffeed69c7aa96a008622ad0c46cb575ca75b5b84273", size = 11063, upload-time = "2025-09-26T14:40:36.069Z" },
+]
+
+[[package]]
 name = "pytest"
 version = "8.4.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1911,6 +1924,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ee/9f/c5201d42a484c061e528825fc8e2d565f5abd50a4ced6fb7d29c4ec99b2b/truststore-0.10.5.tar.gz", hash = "sha256:30d36967ccaded5cbb38d602c433f53600036c79d502f4533a49b60a03bbefcd", size = 28091, upload-time = "2026-10-12T22:27:31.808Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/51/e9/3a7820be2bb0fe53b6bc9c3be26d3d1158004e4c3ab953aa6840b955b1e9/truststore-0.10.5-py3-none-any.whl", hash = "sha256:9aaaedaefaf06d8b206278cf8b5012bc897f485a874503501e12d776df78951c", size = 19017, upload-time = "2026-10-12T22:27:30.377Z" },
+]
+
+[[package]]
+name = "types-pyperclip"
+version = "1.11.0.20260508"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7a/ab/189f37a135df54686543ab99e8e1e6f8892efedc389beb80a72e038416e9/types_pyperclip-1.11.0.20260508.tar.gz", hash = "sha256:e5dafdc929874f3f6bf495171d06cbc22483954a9ac0699ca53abbf9eadc592d", size = 7323, upload-time = "2026-05-08T04:48:18.355Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d2/61/02207b51ce9f3967d52e72749118d77a730cc29acad1ad623aa9b49a4e2f/types_pyperclip-1.11.0.20260508-py3-none-any.whl", hash = "sha256:4c55f5d7d2224804c54d936881a0e53d8e41b909a64611333662eb04e9bfd1e4", size = 7628, upload-time = "2026-05-08T04:48:17.593Z" },
 ]
 
 [[package]]

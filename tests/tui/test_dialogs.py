@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from textual.widgets import Input
 
 from ibikus.appa.agora.config import AppConfig
@@ -43,7 +44,7 @@ async def test_f5_copies_final(tmp_path: Path) -> None:
         await pilot.press("f5")
         await pilot.pause()
         assert app.clipboard == "Answer"
-        assert "Copied" in rec.messages
+        assert "Copied 6 characters" in rec.messages
 
 
 async def test_f9_changes_generator_temperature(tmp_path: Path) -> None:
@@ -167,3 +168,42 @@ async def test_f6_write_error_notifies_instead_of_crash(tmp_path: Path) -> None:
         await pilot.pause()
         assert any(m.startswith("Cannot save:") for m in rec.messages)
         assert app.return_code is None
+
+
+async def test_ctrl_c_in_log_entry_uses_system_clipboard(
+    tmp_path: Path, monkeypatch: "pytest.MonkeyPatch"
+) -> None:
+    import pyperclip
+
+    from ibikus.appa.agora.reflection.events import LlmExchange
+    from ibikus.appa.agora.tui.dialogs import LogEntryScreen
+
+    copied: list[str] = []
+    monkeypatch.setattr(pyperclip, "copy", copied.append)
+    app = make_app(make_project(tmp_path))
+    async with app.run_test(size=(100, 30)) as pilot:
+        rec = NotifyRecorder(app)
+        await wait_tree(pilot)
+        entry = LlmExchange(role="critic", direction="request", model="m", text="привет\nмир")
+        app.push_screen(LogEntryScreen(entry))
+        await pilot.pause()
+        await pilot.press("f7", "ctrl+c")
+        await pilot.pause()
+        assert copied == ["привет\nмир"]
+        assert "Copied 10 characters" in rec.messages
+
+
+async def test_copy_survives_missing_system_clipboard(
+    tmp_path: Path, monkeypatch: "pytest.MonkeyPatch"
+) -> None:
+    import pyperclip
+
+    def broken(text: str) -> None:
+        raise pyperclip.PyperclipException("no clipboard")
+
+    monkeypatch.setattr(pyperclip, "copy", broken)
+    app = make_app(make_project(tmp_path))
+    async with app.run_test(size=(100, 30)) as pilot:
+        await wait_tree(pilot)
+        app.copy_to_clipboard("x")  # must not raise; OSC 52 path still used
+        assert app.clipboard == "x"
