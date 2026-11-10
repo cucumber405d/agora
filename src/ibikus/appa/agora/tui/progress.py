@@ -60,10 +60,21 @@ class RunProgress:
         self._stages: list[_Stage] = []
         self._t0 = 0.0
         self._t_end: float | None = None
+        self._header: list[str] = []
 
     # -- input ----------------------------------------------------------------------------------
 
-    def start(self, context: Context) -> None:
+    def start(
+        self, context: Context, generator: str | None = None, critic: str | None = None
+    ) -> None:
+        self._header = [
+            line
+            for line in (
+                f"Gen  {generator}" if generator else None,
+                f"Crit {critic}" if critic else None,
+            )
+            if line
+        ]
         self.state = "running"
         self.total_steps = self.completed_steps = 0
         self._t0 = self.clock()
@@ -118,7 +129,9 @@ class RunProgress:
             case RunFinished(result=r):
                 self.completed_steps = self.total_steps
                 icon_state: StageState = "done" if r.status == "approved" else "warn"
-                self._stages.append(_Stage(now, f"Final {r.status} {r.best_score}", icon_state))
+                score = f"{r.selected_score}/10" if r.selected_score is not None else "not graded"
+                label = f"Final It{r.selected_iteration} {score} {r.status}"
+                self._stages.append(_Stage(now, label, icon_state))
                 self._end("done", now)
             case RunFailed(reason=reason):
                 state: StageState = "cancelled" if reason == "cancelled" else "failed"
@@ -146,7 +159,7 @@ class RunProgress:
         return self.SPINNER[int(self.elapsed() * 10) % len(self.SPINNER)]
 
     def lines(self) -> list[str]:
-        out = []
+        out = list(self._header)
         for st in self._stages:
             icon = self._spinner() if st.state == "running" else _ICONS[st.state]
             tail = f" {st.detail}" if st.detail else ""
@@ -176,8 +189,10 @@ class ProgressPanel(Vertical):
         self.border_title = "Progress"
         self.set_interval(0.1, self._tick)
 
-    def start(self, context: Context) -> None:
-        self.progress.start(context)
+    def start(
+        self, context: Context, generator: str | None = None, critic: str | None = None
+    ) -> None:
+        self.progress.start(context, generator, critic)
         self._redraw()
 
     def apply(self, event: RunEvent) -> None:

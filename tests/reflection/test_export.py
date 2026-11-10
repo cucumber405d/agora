@@ -12,6 +12,8 @@ def test_render_run_markdown() -> None:
         status="approved",
         iterations=2,
         best_score=9,
+        selected_iteration=2,
+        selected_score=9,
         history=[
             IterationRecord(iteration=1, draft="Answer A", critique=c(5, issues=["too short"])),
             IterationRecord(iteration=2, draft="Answer B", critique=c(9, approved=True)),
@@ -20,7 +22,7 @@ def test_render_run_markdown() -> None:
     md = render_run_markdown("Q", result, datetime(2026, 11, 9, 12, 30))
     assert md.startswith("# Agora run 2026-11-09 12:30")
     assert "## Prompt\n\nQ" in md
-    assert "## Final answer (approved, score 9)\n\nAnswer B" in md
+    assert "## Final answer (approved, iteration 2, score 9)\n\nAnswer B" in md
     assert "### Iteration 1 — score 5" in md
     assert "- too short" in md
     assert "Overall fine." in md  # critic feedback

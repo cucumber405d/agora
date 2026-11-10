@@ -211,3 +211,26 @@ async def test_configured_language_overrides_detection() -> None:
     agents = make_agents(["A"], [c(9, approved=True)], recorder=rec)
     await collect(build_graph(agents, cfg(language="German")), "расскажи сказку")
     assert "Answer in German." in rec.generator_inputs[0]
+
+
+async def test_result_names_selected_iteration() -> None:
+    conf = cfg(max_iterations=3)
+    _, st = await collect(build_graph(make_agents(["A", "B", "C"], [c(6), c(7), c(4)]), conf), "Q")
+    r = to_result(st, conf)
+    assert (r.selected_iteration, r.selected_score, r.final) == (2, 7, "B")
+
+
+async def test_result_approved_selects_last() -> None:
+    conf = cfg()
+    agents = make_agents(["A", "B"], [c(5), c(9, approved=True)])
+    _, st = await collect(build_graph(agents, conf), "Q")
+    r = to_result(st, conf)
+    assert (r.selected_iteration, r.selected_score) == (2, 9)
+
+
+async def test_result_critic_failed_selection_is_ungraded() -> None:
+    conf = cfg()
+    agents = make_agents(["A", "B"], [c(5), UnexpectedModelBehavior("x")])
+    _, st = await collect(build_graph(agents, conf), "Q")
+    r = to_result(st, conf)
+    assert (r.selected_iteration, r.selected_score) == (2, None)

@@ -37,7 +37,7 @@ async def test_run_shows_iterations_and_final(tmp_path: Path) -> None:
         await run_prompt(pilot, "Q")
         text = _feed_text(app)
         assert "Iter 1" in text
-        assert "Final (approved, score 9)" in text
+        assert "Final (approved, Iter 1, score 9)" in text
         assert "Answer" in text
         assert app.last_result is not None and app.last_prompt == "Q"
         assert not app.run_in_progress
@@ -124,7 +124,7 @@ async def test_critic_failure_shows_warning_and_final(tmp_path: Path) -> None:
         await run_prompt(pilot, "Q")
         text = _feed_text(app)
         assert "critique failed:" in text
-        assert "Final (critic_failed, score 0)" in text
+        assert "Final (critic_failed, Iter 1, not graded)" in text
         assert app.last_result is not None and app.last_result.final == "Answer"
 
 
@@ -180,7 +180,9 @@ async def test_progress_panel_after_run(tmp_path: Path) -> None:
         await run_prompt(pilot, "Q")
         panel = app.query_one(ProgressPanel)
         assert str(panel.border_title).startswith("Progress ─ ✓")
-        assert "Final approved 9" in str(panel.query_one("#progress-log").render())
+        log = str(panel.query_one("#progress-log").render())
+        assert "Final It1 9/10 approved" in log
+        assert log.startswith("Gen  ollama/qwen2.5:7b t=0.9\nCrit anthropic/claude-haiku-4-5 t=0.1")
         assert panel.query_one(ProgressBar).percentage == 1.0
 
 

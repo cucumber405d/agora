@@ -293,7 +293,8 @@ class AgoraApp(App[None]):
     async def _run(self, prompt: str, ctx: Context, cancel: asyncio.Event) -> None:
         feed = self.query_one(RunFeed)
         progress = self.query_one(ProgressPanel)
-        progress.start(ctx)
+        r = self.config.reflection
+        progress.start(ctx, generator=describe(r.generator), critic=describe(r.critic))
         try:
             async for event in self._service.run(prompt, ctx, cancel):
                 feed.apply(event)

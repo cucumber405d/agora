@@ -115,7 +115,11 @@ class RunFeed(VerticalScroll):
             case RunFinished(result=r):
                 for it in self._iters.values():  # the final text is shown once, below
                     it.box.collapsed = True
-                self._add(f"Final ({r.status}, score {r.best_score})", r.final, "final")
+                score = (
+                    f"score {r.selected_score}" if r.selected_score is not None else "not graded"
+                )
+                title = f"Final ({r.status}, Iter {r.selected_iteration}, {score})"
+                self._add(title, r.final, "final")
             case RunFailed(reason=reason, message=msg):
                 self._add("Error", f"{reason}: {msg}", "error")
         self.scroll_end(animate=False)

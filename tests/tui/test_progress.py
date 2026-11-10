@@ -35,8 +35,18 @@ def _started(clock: Clock, max_iterations: int = 3) -> RunProgress:
     return p
 
 
-def _result(status: str = "approved", best: int = 9) -> RunResult:
-    return RunResult(final="F", status=status, iterations=1, best_score=best, history=[])  # type: ignore[arg-type]
+def _result(
+    status: str = "approved", best: int = 9, selected: int = 1, score: int | None = 9
+) -> RunResult:
+    return RunResult(
+        final="F",
+        status=status,  # type: ignore[arg-type]
+        iterations=selected,
+        best_score=best,
+        selected_iteration=selected,
+        selected_score=score,
+        history=[],
+    )
 
 
 def test_initial_state_idle() -> None:
@@ -90,7 +100,7 @@ def test_early_approval_fills_bar() -> None:
     assert p.percent < 100
     p.apply(RunFinished(result=_result()))
     assert p.state == "done" and p.percent == 100
-    assert p.lines()[-1].endswith("✓ Final approved 9")
+    assert p.lines()[-1].endswith("✓ Final It1 9/10 approved")
 
 
 def test_critique_failed_is_warning() -> None:
@@ -98,8 +108,8 @@ def test_critique_failed_is_warning() -> None:
     p.apply(DraftDone(iteration=1, text="d"))
     p.apply(CritiqueFailed(iteration=1, message="bad"))
     assert "⚠ It1 Crit failed" in p.lines()[-1]
-    p.apply(RunFinished(result=_result("critic_failed", 0)))
-    assert p.lines()[-1].endswith("⚠ Final critic_failed 0")
+    p.apply(RunFinished(result=_result("critic_failed", 0, selected=1, score=None)))
+    assert p.lines()[-1].endswith("⚠ Final It1 not graded critic_failed")
 
 
 def test_cancel_marks_running_stage() -> None:
@@ -148,3 +158,19 @@ def test_truncated_generation_is_warning() -> None:
     clock.t += 2
     p.apply(DraftDone(iteration=1, text="x" * 40, truncated=True))
     assert "⚠ It1 Gen" in p.lines()[1] and p.lines()[1].endswith("truncated")
+
+
+def test_model_names_on_top() -> None:
+    p = RunProgress(clock=Clock())
+    p.start(_ctx(), generator="ollama/qwen3.5:9b t=0.9", critic="ollama/qwen3:14b t=0.1")
+    assert p.lines()[:3] == [
+        "Gen  ollama/qwen3.5:9b t=0.9",
+        "Crit ollama/qwen3:14b t=0.1",
+        "00:00 ✓ Context 1 f 3.2k",
+    ]
+
+
+def test_final_names_selected_iteration_when_not_last() -> None:
+    p = _started(Clock())
+    p.apply(RunFinished(result=_result("max_iterations", 7, selected=1, score=7)))
+    assert p.lines()[-1].endswith("⚠ Final It1 7/10 max_iterations")

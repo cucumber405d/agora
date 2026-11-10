@@ -20,6 +20,8 @@ class RunResult(BaseModel):
     status: Literal["approved", "max_iterations", "critic_failed"]
     iterations: int
     best_score: int
+    selected_iteration: int  # 1-based iteration whose draft is `final`
+    selected_score: int | None  # None when that draft was not graded (critic_failed)
     history: list[IterationRecord]
 
 

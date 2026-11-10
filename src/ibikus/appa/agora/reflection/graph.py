@@ -74,6 +74,8 @@ def to_result(state: ReflectionState, cfg: ReflectionConfig) -> RunResult:
             status="critic_failed",
             iterations=state["iteration"],
             best_score=max((k.score for k in critiques), default=0),
+            selected_iteration=len(drafts),
+            selected_score=None,
             history=history,
         )
     approved = is_approved(critiques[-1], cfg.approve_threshold)
@@ -83,6 +85,8 @@ def to_result(state: ReflectionState, cfg: ReflectionConfig) -> RunResult:
         status="approved" if approved else "max_iterations",
         iterations=state["iteration"],
         best_score=critiques[idx].score,
+        selected_iteration=idx + 1,
+        selected_score=critiques[idx].score,
         history=history,
     )
 

@@ -15,7 +15,12 @@ def render_run_markdown(prompt: str, result: RunResult, created: datetime) -> st
         "",
         prompt,
         "",
-        f"## Final answer ({result.status}, score {result.best_score})",
+        f"## Final answer ({result.status}, iteration {result.selected_iteration}, "
+        + (
+            f"score {result.selected_score})"
+            if result.selected_score is not None
+            else "not graded)"
+        ),
         "",
         result.final,
         "",
