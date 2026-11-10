@@ -162,10 +162,16 @@ def test_truncated_generation_is_warning() -> None:
 
 def test_model_names_on_top() -> None:
     p = RunProgress(clock=Clock())
-    p.start(_ctx(), generator="ollama/qwen3.5:9b t=0.9", critic="ollama/qwen3:14b t=0.1")
-    assert p.lines()[:3] == [
+    p.start(
+        _ctx(),
+        generator="ollama/qwen3.5:9b t=0.9",
+        critic="ollama/qwen3:14b t=0.1",
+        limits="max 3 iterations, threshold 9",
+    )
+    assert p.lines()[:4] == [
         "Gen  ollama/qwen3.5:9b t=0.9",
         "Crit ollama/qwen3:14b t=0.1",
+        "Loop max 3 iterations, threshold 9",
         "00:00 ✓ Context 1 f 3.2k",
     ]
 

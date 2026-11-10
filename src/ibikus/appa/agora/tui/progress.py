@@ -65,13 +65,18 @@ class RunProgress:
     # -- input ----------------------------------------------------------------------------------
 
     def start(
-        self, context: Context, generator: str | None = None, critic: str | None = None
+        self,
+        context: Context,
+        generator: str | None = None,
+        critic: str | None = None,
+        limits: str | None = None,
     ) -> None:
         self._header = [
             line
             for line in (
                 f"Gen  {generator}" if generator else None,
                 f"Crit {critic}" if critic else None,
+                f"Loop {limits}" if limits else None,
             )
             if line
         ]
@@ -190,9 +195,13 @@ class ProgressPanel(Vertical):
         self.set_interval(0.1, self._tick)
 
     def start(
-        self, context: Context, generator: str | None = None, critic: str | None = None
+        self,
+        context: Context,
+        generator: str | None = None,
+        critic: str | None = None,
+        limits: str | None = None,
     ) -> None:
-        self.progress.start(context, generator, critic)
+        self.progress.start(context, generator, critic, limits)
         self._redraw()
 
     def apply(self, event: RunEvent) -> None:

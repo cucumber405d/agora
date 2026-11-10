@@ -182,7 +182,11 @@ async def test_progress_panel_after_run(tmp_path: Path) -> None:
         assert str(panel.border_title).startswith("Progress ─ ✓")
         log = str(panel.query_one("#progress-log").render())
         assert "Final It1 9/10 approved" in log
-        assert log.startswith("Gen  ollama/qwen2.5:7b t=0.9\nCrit anthropic/claude-haiku-4-5 t=0.1")
+        assert log.startswith(
+            "Gen  ollama/qwen2.5:7b t=0.9\n"
+            "Crit anthropic/claude-haiku-4-5 t=0.1\n"
+            "Loop max 3 iterations, threshold 8"
+        )
         assert panel.query_one(ProgressBar).percentage == 1.0
 
 

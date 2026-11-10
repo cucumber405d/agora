@@ -294,7 +294,12 @@ class AgoraApp(App[None]):
         feed = self.query_one(RunFeed)
         progress = self.query_one(ProgressPanel)
         r = self.config.reflection
-        progress.start(ctx, generator=describe(r.generator), critic=describe(r.critic))
+        progress.start(
+            ctx,
+            generator=describe(r.generator),
+            critic=describe(r.critic),
+            limits=f"max {r.max_iterations} iterations, threshold {r.approve_threshold}",
+        )
         try:
             async for event in self._service.run(prompt, ctx, cancel):
                 feed.apply(event)
