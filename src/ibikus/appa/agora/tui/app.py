@@ -99,7 +99,6 @@ class AgoraApp(App[None]):
 
     def on_mount(self) -> None:
         files = self.query_one(FilesPanel)
-        files.border_title = "Files"
         files.border_subtitle = "Context: 0 files, 0.0k"
         self.query_one("#prompt", TextArea).border_title = "Prompt"
         self.query_one(RunFeed).border_title = "Run"
