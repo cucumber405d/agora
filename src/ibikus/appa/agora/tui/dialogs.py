@@ -26,7 +26,7 @@ HELP_ROWS = [
     ("F10", "Quit"),
     ("Esc", "Cancel run / close dialog"),
     ("← / →, Enter", "Choose and press a dialog button"),
-    ("Space / Ins", "Mark file for context (file panel)"),
+    ("Space / Ins / click [ ]", "Mark file for context (file panel)"),
     ("Ctrl+R", "Re-read the file panel from disk"),
     ("Backspace / Ctrl+PgUp", "File panel: go to the parent directory"),
 ]

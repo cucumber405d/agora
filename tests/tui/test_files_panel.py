@@ -119,3 +119,41 @@ async def test_parent_of_filesystem_root_is_noop(tmp_path: Path) -> None:
         await pilot.press("backspace")
         await _settle(pilot, panel)
         assert Path(panel.path) == Path(tmp_path.anchor)
+
+
+async def _click_label(pilot: Pilot[Any], panel: FilesPanel, name: str, dx: int) -> None:
+    """Click inside the label of `name`, dx characters from the label start."""
+    node = _node(panel, name)
+    region = panel._get_label_region(node.line)
+    assert region is not None
+    content = panel.content_region.offset - panel.region.offset  # border width
+    await pilot.click(
+        panel,
+        offset=(
+            content.x + region.x + dx - panel.scroll_offset.x,
+            content.y + node.line - panel.scroll_offset.y,
+        ),
+    )
+    await pilot.pause()
+
+
+async def test_click_on_checkbox_toggles_mark(tmp_path: Path) -> None:
+    root = make_project(tmp_path)
+    app = make_app(root)
+    async with app.run_test(size=(100, 30)) as pilot:
+        panel = await wait_tree(pilot)
+        await _click_label(pilot, panel, "b.txt", 1)  # the space inside "[ ]"
+        assert app.marked_paths == {(root / "b.txt").resolve()}
+        assert app.query_one("#files").border_subtitle == "Context: 1 files, 0.0k"
+        await _click_label(pilot, panel, "b.txt", 0)  # the "[" of "[x]"
+        assert app.marked_paths == set()
+
+
+async def test_click_on_file_name_does_not_mark(tmp_path: Path) -> None:
+    root = make_project(tmp_path)
+    app = make_app(root)
+    async with app.run_test(size=(100, 30)) as pilot:
+        panel = await wait_tree(pilot)
+        await _click_label(pilot, panel, "b.txt", 6)  # on the name, after "[ ] " + icon
+        assert app.marked_paths == set()
+        assert panel.cursor_node is not None and panel.cursor_node.data.path.name == "b.txt"

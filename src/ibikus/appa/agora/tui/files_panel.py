@@ -11,6 +11,7 @@ from typing import ClassVar
 
 from rich.style import Style
 from rich.text import Text
+from textual import events
 from textual.binding import Binding, BindingType
 from textual.message import Message
 from textual.widgets import DirectoryTree
@@ -77,10 +78,10 @@ class FilesPanel(DirectoryTree):
         prefix = "[x] " if node.data.path.resolve() in self.marked else "[ ] "
         return Text.assemble(prefix, label)
 
-    def action_toggle_mark(self) -> None:
-        node = self.cursor_node
+    def _toggle(self, node: TreeNode[DirEntry] | None) -> bool:
+        """Toggle the mark of a file node. Returns False for folders / empty lines."""
         if node is None or node.data is None or node.allow_expand:
-            return
+            return False
         path = node.data.path.resolve()
         if path in self.marked:
             self.marked.remove(path)
@@ -88,4 +89,25 @@ class FilesPanel(DirectoryTree):
             self.marked.add(path)
         self._refresh_node(node)
         self.post_message(self.MarkedChanged(frozenset(self.marked)))
-        self.action_cursor_down()
+        return True
+
+    def action_toggle_mark(self) -> None:
+        if self._toggle(self.cursor_node):
+            self.action_cursor_down()
+
+    async def _on_click(self, event: events.Click) -> None:
+        """A click exactly on the "[ ]" box toggles the mark; elsewhere the default
+        Tree behaviour (move cursor, expand folders) applies."""
+        offset = event.get_content_offset(self)
+        if offset is None:
+            return
+        line = offset.y + self.scroll_offset.y
+        x = offset.x + self.scroll_offset.x
+        region = self._get_label_region(line)
+        node = self.get_node_at_line(line)
+        if region is None or not region.x <= x < region.x + len("[ ]"):
+            return
+        if self._toggle(node):
+            self.cursor_line = line
+            event.stop()
+            event.prevent_default()  # skip Tree._on_click for this click
