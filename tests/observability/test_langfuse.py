@@ -75,7 +75,7 @@ class FakeObservability:
 async def test_service_records_spans() -> None:
     rec = FakeObservability()
     svc = ReflectionService(
-        AppConfig(), agents=make_agents(["A", "B"], [c(3), c(9)]), observability=rec
+        AppConfig(), agents=make_agents(["A", "B"], [c(3), c(9, approved=True)]), observability=rec
     )
     events = [e async for e in svc.run("Q", Context.empty())]
     assert isinstance(events[-1], RunFinished)

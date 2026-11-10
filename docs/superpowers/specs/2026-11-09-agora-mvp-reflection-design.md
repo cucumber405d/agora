@@ -32,7 +32,7 @@ Agora — agentic- и мультиагентный модуль платформ
 | UI | Textual TUI, вид Far/GoldED (синяя тема, панели, строка F-клавиш) |
 | Язык UI и комментариев в коде | английский |
 | LLM-провайдеры | настраиваются для каждой роли отдельно: Ollama (локально), Anthropic, OpenAI, OpenRouter |
-| Критерий остановки | структурированный вердикт `Critique`: `approved` или `score >= threshold`, но не больше `max_iterations` |
+| Критерий остановки | структурированный вердикт `Critique`: `approved` **и** `score >= threshold` (порог — жёсткая планка; изменено 2026-11-10, было «или»), но не больше `max_iterations` |
 | Контекст | промпт + локальные файлы, выбранные в файловой панели в духе Far |
 | Observability | Langfuse, self-hosted через `docker compose`; опционально (нет ключей → no-op) |
 | Оркестрация | LangGraph `StateGraph`; каждый узел — обёртка над агентом Pydantic AI |
@@ -78,7 +78,7 @@ Python 3.12, `uv`, `ruff` (lint + format), `pytest` + `pytest-asyncio`, `mypy --
 generate --> critique --> route
    ^                        |
    |-- не одобрено, iter < max
-                            |-- approved или score >= threshold --> finalize (status=approved)
+                            |-- approved и score >= threshold --> finalize (status=approved)
                             |-- iter >= max_iterations          --> finalize (status=max_iterations)
 ```
 

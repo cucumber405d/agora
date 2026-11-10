@@ -29,16 +29,35 @@ async def test_approved_on_first_iteration() -> None:
     assert ev[0].max_iterations == 3
 
 
-async def test_threshold_counts_as_approval() -> None:
+async def test_high_score_without_approval_continues() -> None:
     conf = cfg(approve_threshold=8)
-    _, st = await collect(build_graph(make_agents(["A"], [c(8)]), conf), "Q")
+    _, st = await collect(
+        build_graph(make_agents(["A", "B"], [c(9), c(9, approved=True)]), conf), "Q"
+    )
     r = to_result(st, conf)
-    assert (r.status, r.iterations) == ("approved", 1)
+    assert (r.status, r.iterations, r.final) == ("approved", 2, "B")
+
+
+async def test_approved_below_threshold_continues() -> None:
+    """approve_threshold is a hard floor: the critic's approval alone is not enough."""
+    conf = cfg(approve_threshold=10, max_iterations=3)
+    agents = make_agents(["A", "B", "C"], [c(9, approved=True)] * 3)
+    _, st = await collect(build_graph(agents, conf), "Q")
+    r = to_result(st, conf)
+    assert (r.status, r.iterations) == ("max_iterations", 3)
+
+
+async def test_approved_at_threshold_stops() -> None:
+    conf = cfg(approve_threshold=10)
+    _, st = await collect(build_graph(make_agents(["A"], [c(10, approved=True)]), conf), "Q")
+    assert (to_result(st, conf).status, st["iteration"]) == ("approved", 1)
 
 
 async def test_improves_until_threshold() -> None:
     conf = cfg()
-    _, st = await collect(build_graph(make_agents(["A", "B"], [c(5), c(9)]), conf), "Q")
+    _, st = await collect(
+        build_graph(make_agents(["A", "B"], [c(5), c(9, approved=True)]), conf), "Q"
+    )
     r = to_result(st, conf)
     assert (r.status, r.iterations, r.final) == ("approved", 2, "B")
     assert [h.critique.score for h in r.history] == [5, 9]
@@ -97,8 +116,9 @@ def test_select_final_pure() -> None:
 
 
 def test_is_approved() -> None:
-    assert is_approved(c(3, approved=True), 8)
-    assert is_approved(c(8), 8)
+    assert not is_approved(c(3, approved=True), 8)  # below the floor
+    assert not is_approved(c(8), 8)  # critic did not approve
+    assert is_approved(c(8, approved=True), 8)
     assert not is_approved(c(7), 8)
 
 

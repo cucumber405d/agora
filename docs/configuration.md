@@ -18,7 +18,7 @@ Relative `reflection.prompts.*` paths are resolved against the current working d
 | Field | Default | Notes |
 |---|---|---|
 | `reflection.max_iterations` | `3` | 1-10 |
-| `reflection.approve_threshold` | `8` | 0-10; `score >= threshold` counts as approval |
+| `reflection.approve_threshold` | `8` | 0-10; hard floor: a draft is accepted only if the critic approves **and** `score >= threshold` |
 | `reflection.generator` | `ollama / qwen2.5:7b, t=0.9, base_url http://localhost:11434/v1` | model, see below |
 | `reflection.critic` | `anthropic / claude-haiku-4-5, t=0.1` | model, see below |
 | `reflection.prompts.generator` / `.critic` | built-in | path to a custom instruction file |

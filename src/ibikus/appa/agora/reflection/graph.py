@@ -37,7 +37,8 @@ class Agents:
 
 
 def is_approved(c: Critique, threshold: int) -> bool:
-    return c.approved or c.score >= threshold
+    """The critic must approve AND the score must reach the configured floor."""
+    return c.approved and c.score >= threshold
 
 
 def route(state: ReflectionState, cfg: ReflectionConfig) -> Literal["generate", "finalize"]:

@@ -26,7 +26,7 @@ config/         AppConfig (pydantic-settings): env > YAML > defaults
 ## Reflection graph
 
 ```
-START -> generate -> critique --approved or score >= threshold--> finalize -> END
+START -> generate -> critique --approved and score >= threshold--> finalize -> END
             ^            |
             +-- not approved and iteration < max_iterations
                          +-- iteration >= max_iterations -------> finalize
