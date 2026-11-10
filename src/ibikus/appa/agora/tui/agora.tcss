@@ -195,3 +195,24 @@ ModalScreen {
     color: #ffff55;
     padding-left: 2;
 }
+
+/* LLM log under the run feed */
+#llm-log {
+    height: 12;
+    background: #000080;
+    border: double #00ffff;
+    border-title-color: #ffffff;
+}
+
+#llm-log > ListItem {
+    background: #000080;
+    height: 1;
+}
+
+#llm-log > ListItem.-highlight {
+    background: #008080;
+}
+
+.log-entry {
+    height: 80%;
+}

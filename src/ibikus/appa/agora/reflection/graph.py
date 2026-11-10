@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from time import monotonic
 from typing import Any, Literal
 
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
-from pydantic_ai import Agent
+from pydantic_ai import Agent, capture_run_messages
 from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.settings import ModelSettings
 
@@ -27,6 +28,7 @@ from .events import (
     RunResult,
 )
 from .state import ReflectionState
+from .trace import error_exchange, exchanges_after_request, model_label, request_exchange
 
 
 @dataclass(frozen=True)
@@ -35,6 +37,8 @@ class Agents:
     critic: Agent[CriticDeps, Critique]
     generator_settings: ModelSettings
     critic_settings: ModelSettings
+    generator_instructions: str = ""
+    critic_instructions: str = ""
 
 
 def is_approved(c: Critique, threshold: int) -> bool:
@@ -110,13 +114,26 @@ def build_graph(
             state["prompt"], state["context"], previous, critique, language=_language(state)
         )
         parts: list[str] = []
-        with obs.iteration_span(n, "generate") as span:
-            async with agents.generator.run_stream(
-                user_input, model_settings=agents.generator_settings
-            ) as result:
-                async for delta in result.stream_text(delta=True, debounce_by=None):
-                    parts.append(delta)
-                    write(DraftChunk(iteration=n, text=delta))
+        gen_model = model_label(agents.generator)
+        write(request_exchange("generator", gen_model, agents.generator_instructions, user_input))
+        started = monotonic()
+        with obs.iteration_span(n, "generate") as span, capture_run_messages() as messages:
+            try:
+                async with agents.generator.run_stream(
+                    user_input, model_settings=agents.generator_settings
+                ) as result:
+                    async for delta in result.stream_text(delta=True, debounce_by=None):
+                        parts.append(delta)
+                        write(DraftChunk(iteration=n, text=delta))
+            except Exception as e:
+                for x in exchanges_after_request("generator", gen_model, messages, failed=True):
+                    write(x)
+                write(error_exchange("generator", gen_model, e))
+                raise
+            for x in exchanges_after_request(
+                "generator", gen_model, messages, seconds=monotonic() - started
+            ):
+                write(x)
             draft = "".join(parts)
             truncated = result.response.finish_reason == "length"
             span.update(output=draft)
@@ -137,16 +154,29 @@ def build_graph(
             truncated=bool(state["truncated"] and state["truncated"][-1]),
             language=_language(state),
         )
-        with obs.iteration_span(state["iteration"], "critique") as span:
+        crit_model = model_label(agents.critic)
+        write(request_exchange("critic", crit_model, agents.critic_instructions, user_input))
+        started = monotonic()
+        with (
+            obs.iteration_span(state["iteration"], "critique") as span,
+            capture_run_messages() as messages,
+        ):
             try:
                 run = await agents.critic.run(
                     user_input, model_settings=agents.critic_settings, deps=_language(state)
                 )
             except UnexpectedModelBehavior as e:
+                for x in exchanges_after_request("critic", crit_model, messages, failed=True):
+                    write(x)
+                write(error_exchange("critic", crit_model, e))
                 message = f"{e}{f' ({e.__cause__})' if e.__cause__ else ''}"
                 span.update(metadata={"critic_error": message})
                 write(CritiqueFailed(iteration=state["iteration"], message=message))
                 return {"critic_error": message}
+            for x in exchanges_after_request(
+                "critic", crit_model, messages, seconds=monotonic() - started
+            ):
+                write(x)
             span.update(
                 output=run.output.model_dump(),
                 metadata={"score": run.output.score, "approved": run.output.approved},

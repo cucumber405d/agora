@@ -58,6 +58,19 @@ class CritiqueFailed(BaseModel):
     message: str
 
 
+class LlmExchange(BaseModel):
+    """One message to or from a model, for the LLM log (requests, responses, retries, errors)."""
+
+    kind: Literal["llm_exchange"] = "llm_exchange"
+    role: Literal["generator", "critic"]
+    direction: Literal["request", "response", "retry", "error"]
+    model: str
+    text: str
+    tokens: int | None = None
+    seconds: float | None = None
+    finish: str | None = None
+
+
 class RunFinished(BaseModel):
     kind: Literal["run_finished"] = "run_finished"
     result: RunResult
@@ -78,6 +91,7 @@ RunEvent = Annotated[
     | DraftDone
     | CritiqueDone
     | CritiqueFailed
+    | LlmExchange
     | RunFinished
     | RunFailed,
     Field(discriminator="kind"),

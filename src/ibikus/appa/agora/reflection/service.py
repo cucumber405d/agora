@@ -40,19 +40,23 @@ _QueueItem = RunEvent | _Failure | _Cancelled
 def build_agents(config: AppConfig) -> Agents:
     """Build generator and critic from config. Raises ConfigError (e.g. missing API key)."""
     r = config.reflection
+    gen_instructions = load_instructions("generator", r.prompts.generator)
+    critic_instructions = load_instructions("critic", r.prompts.critic)
     return Agents(
         generator=build_generator(
             build_model(r.generator),
             build_settings(r.generator),
-            load_instructions("generator", r.prompts.generator),
+            gen_instructions,
         ),
         critic=build_critic(
             build_model(r.critic),
             build_settings(r.critic),
-            load_instructions("critic", r.prompts.critic),
+            critic_instructions,
         ),
         generator_settings=build_settings(r.generator),
         critic_settings=build_settings(r.critic),
+        generator_instructions=gen_instructions,
+        critic_instructions=critic_instructions,
     )
 
 

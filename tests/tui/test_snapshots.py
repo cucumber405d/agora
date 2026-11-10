@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any
 
+import pytest
 from textual.pilot import Pilot
 
 from .helpers import make_app, make_project, run_prompt, wait_tree
@@ -13,7 +14,13 @@ def test_initial_screen(snap_compare: Any, tmp_path: Path) -> None:
     assert snap_compare(make_app(make_project(tmp_path)), terminal_size=(100, 30), run_before=ready)
 
 
-def test_after_approved_run(snap_compare: Any, tmp_path: Path) -> None:
+def test_after_approved_run(
+    snap_compare: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # deterministic timings in the progress panel and the LLM log
+    monkeypatch.setattr("ibikus.appa.agora.reflection.graph.monotonic", lambda: 0.0)
+    monkeypatch.setattr("ibikus.appa.agora.tui.llm_log.monotonic", lambda: 0.0)
+
     async def run(pilot: Pilot[Any]) -> None:
         from ibikus.appa.agora.tui.progress import ProgressPanel
 

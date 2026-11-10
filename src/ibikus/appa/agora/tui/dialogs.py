@@ -14,6 +14,7 @@ from textual.widgets import Button, Input, Label, MarkdownViewer, Select, Static
 
 from ibikus.appa.agora.config import AppConfig, ModelConfig, Provider
 from ibikus.appa.agora.llm.health import HealthIssue
+from ibikus.appa.agora.reflection.events import LlmExchange
 
 HELP_ROWS = [
     ("F1", "Help"),
@@ -29,6 +30,7 @@ HELP_ROWS = [
     ("Space / Ins / click [ ]", "Mark file for context (file panel)"),
     ("Ctrl+R", "Re-read the file panel from disk"),
     ("Ctrl+L", "Show / hide the progress panel"),
+    ("Enter (LLM log)", "Open the full request / response text"),
     ("Backspace / Ctrl+PgUp", "File panel: go to the parent directory"),
 ]
 
@@ -57,6 +59,20 @@ class ViewerScreen(_Dialog):
         viewer = MarkdownViewer(self._markdown, show_table_of_contents=False, classes="dialog")
         viewer.border_title = "Final answer"
         yield viewer
+
+
+class LogEntryScreen(_Dialog):
+    """Full text of one LLM log entry (request with instructions and input, or response)."""
+
+    def __init__(self, exchange: LlmExchange) -> None:
+        super().__init__()
+        self._exchange = exchange
+
+    def compose(self) -> ComposeResult:
+        e = self._exchange
+        area = TextArea(e.text, read_only=True, soft_wrap=True, classes="dialog log-entry")
+        area.border_title = f"{e.role} {e.direction} · {e.model}"
+        yield area
 
 
 class ConfigScreen(_Dialog):

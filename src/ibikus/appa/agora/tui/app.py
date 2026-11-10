@@ -19,12 +19,13 @@ from ibikus.appa.agora.config import AppConfig, ConfigError
 from ibikus.appa.agora.context import Context, FileContextSource
 from ibikus.appa.agora.llm.factory import describe
 from ibikus.appa.agora.llm.health import HealthIssue
-from ibikus.appa.agora.reflection.events import RunFailed, RunFinished, RunResult
+from ibikus.appa.agora.reflection.events import LlmExchange, RunFailed, RunFinished, RunResult
 from ibikus.appa.agora.reflection.export import render_run_markdown
 from ibikus.appa.agora.reflection.service import ReflectionService
 
 from .dialogs import ConfigScreen, ErrorScreen, HelpScreen, ModelsScreen, ViewerScreen
 from .files_panel import FilesPanel
+from .llm_log import LlmLog
 from .progress import ProgressPanel
 from .run_feed import RunFeed
 from .status_bar import StatusBar
@@ -98,6 +99,7 @@ class AgoraApp(App[None]):
             with Vertical(id="right"):
                 yield TextArea(id="prompt", soft_wrap=True, show_line_numbers=False)
                 yield RunFeed(id="feed")
+                yield LlmLog(id="llm-log")
         yield StatusBar(id="status")
         yield Footer()
 
@@ -293,6 +295,8 @@ class AgoraApp(App[None]):
     async def _run(self, prompt: str, ctx: Context, cancel: asyncio.Event) -> None:
         feed = self.query_one(RunFeed)
         progress = self.query_one(ProgressPanel)
+        llm_log = self.query_one(LlmLog)
+        llm_log.reset()
         r = self.config.reflection
         progress.start(
             ctx,
@@ -302,6 +306,9 @@ class AgoraApp(App[None]):
         )
         try:
             async for event in self._service.run(prompt, ctx, cancel):
+                if isinstance(event, LlmExchange):
+                    llm_log.add(event)
+                    continue
                 feed.apply(event)
                 progress.apply(event)
                 if isinstance(event, RunFinished):

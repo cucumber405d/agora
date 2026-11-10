@@ -19,7 +19,7 @@ async def test_approved_on_first_iteration() -> None:
     ev, st = await collect(graph, "Q")
     r = to_result(st, conf)
     assert (r.status, r.final, r.iterations, r.best_score) == ("approved", "AA", 1, 9)
-    assert [e.kind for e in ev] == [
+    assert [e.kind for e in ev if e.kind != "llm_exchange"] == [
         "iteration_started",
         "draft_chunk",
         "draft_chunk",
@@ -234,3 +234,66 @@ async def test_result_critic_failed_selection_is_ungraded() -> None:
     _, st = await collect(build_graph(agents, conf), "Q")
     r = to_result(st, conf)
     assert (r.selected_iteration, r.selected_score) == (2, None)
+
+
+async def test_llm_exchanges_are_logged_in_order() -> None:
+    ev, _ = await collect(build_graph(make_agents(["AB"], [c(9, approved=True)]), cfg()), "Q")
+    log = [(e.role, e.direction) for e in ev if e.kind == "llm_exchange"]
+    assert log == [
+        ("generator", "request"),
+        ("generator", "response"),
+        ("critic", "request"),
+        ("critic", "response"),
+    ]
+    request = next(e for e in ev if e.kind == "llm_exchange" and e.direction == "request")
+    assert "## Request\nQ" in request.text
+    assert request.tokens is not None and request.tokens > 0
+    response = next(
+        e
+        for e in ev
+        if e.kind == "llm_exchange" and e.role == "generator" and e.direction == "response"
+    )
+    assert response.text == "AB"
+    assert response.seconds is not None
+
+
+async def test_llm_log_shows_critic_retry() -> None:
+    from ibikus.appa.agora.reflection.events import LlmExchange
+
+    agents = make_agents(["A"], [c(9, approved=True)])
+    ev, _ = await collect(build_graph(agents, cfg()), "расскажи")  # English feedback -> 1 retry
+    crit = [e.direction for e in ev if isinstance(e, LlmExchange) and e.role == "critic"]
+    assert crit == ["request", "response", "retry", "response"]
+    retry = next(e for e in ev if isinstance(e, LlmExchange) and e.direction == "retry")
+    assert "Russian" in retry.text
+
+
+async def test_llm_log_marks_critic_failure_as_error() -> None:
+    from ibikus.appa.agora.reflection.events import LlmExchange
+
+    agents = make_agents(["A"], [UnexpectedModelBehavior("bad json")])
+    ev, _ = await collect(build_graph(agents, cfg()), "Q")
+    errors = [e for e in ev if isinstance(e, LlmExchange) and e.direction == "error"]
+    assert len(errors) == 1 and errors[0].role == "critic" and "bad json" in errors[0].text
+
+
+async def test_llm_log_marks_generator_failure_as_error() -> None:
+    import pytest
+    from pydantic_ai.exceptions import ModelConnectionError
+
+    from ibikus.appa.agora.reflection.events import LlmExchange
+
+    events: list[object] = []
+    agents = make_agents([ModelConnectionError("m", "refused")], [c(9)])
+    graph = build_graph(agents, cfg())
+    from ibikus.appa.agora.context import Context
+    from ibikus.appa.agora.reflection.state import initial_state
+
+    with pytest.raises(ModelConnectionError):
+        async for mode, payload in graph.astream(
+            initial_state("Q", Context.empty()), stream_mode=["custom", "values"]
+        ):
+            if mode == "custom":
+                events.append(payload)
+    errors = [e for e in events if isinstance(e, LlmExchange) and e.direction == "error"]
+    assert len(errors) == 1 and "refused" in errors[0].text
