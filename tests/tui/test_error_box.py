@@ -140,3 +140,69 @@ async def test_f9_apply_rechecks(tmp_path: Path) -> None:
         await pilot.click("#apply")
         await wait_group(app, "health")
         assert health.calls == 2
+
+
+async def test_f9_in_error_box_opens_models(tmp_path: Path) -> None:
+    app = _app(tmp_path, FakeHealth([ISSUE]))
+    async with app.run_test(size=(100, 40)) as pilot:
+        await wait_group(app, "health")
+        await pilot.pause()
+        await pilot.press("f9")
+        await pilot.pause()
+        assert isinstance(app.screen, ModelsScreen)
+
+
+async def test_arrow_keys_move_between_buttons(tmp_path: Path) -> None:
+    app = _app(tmp_path, FakeHealth([ISSUE]))
+    async with app.run_test(size=(100, 40)) as pilot:
+        await wait_group(app, "health")
+        await pilot.pause()
+        assert app.focused is not None and app.focused.id == "retry"
+        await pilot.press("right")
+        assert app.focused.id == "models"
+        await pilot.press("right")
+        assert app.focused.id == "close"
+        await pilot.press("right")
+        assert app.focused.id == "close"  # no wrap-around
+        await pilot.press("left", "left")
+        assert app.focused.id == "retry"
+        await pilot.press("right", "enter")
+        await pilot.pause()
+        assert isinstance(app.screen, ModelsScreen)
+
+
+async def test_run_with_known_issue_opens_box_without_calling_llm(tmp_path: Path) -> None:
+    health = FakeHealth([ISSUE], [ISSUE])
+    app = _app(tmp_path, health)
+    async with app.run_test(size=(100, 30)) as pilot:
+        await wait_group(app, "health")
+        await pilot.pause()
+        await pilot.press("escape")
+        await wait_tree(pilot)
+        app.query_one("#prompt").insert("Q")  # type: ignore[attr-defined]
+        await pilot.press("f2")
+        await wait_group(app, "health")
+        await pilot.pause()
+        assert isinstance(app.screen, ErrorScreen)
+        assert health.calls == 2
+        assert app.last_result is None and not app.run_in_progress
+
+
+async def test_run_after_issue_fixed_starts_run(tmp_path: Path) -> None:
+    from .helpers import wait_run
+
+    health = FakeHealth([ISSUE], [])
+    app = _app(tmp_path, health)
+    async with app.run_test(size=(100, 30)) as pilot:
+        await wait_group(app, "health")
+        await pilot.pause()
+        await pilot.press("escape")
+        await wait_tree(pilot)
+        app.query_one("#prompt").insert("Q")  # type: ignore[attr-defined]
+        await pilot.press("f2")
+        await wait_group(app, "health")
+        await pilot.pause()
+        await wait_run(app)
+        await pilot.pause()
+        assert not isinstance(app.screen, ErrorScreen)
+        assert app.last_result is not None

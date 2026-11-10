@@ -25,6 +25,7 @@ HELP_ROWS = [
     ("F9", "Switch models / temperatures (this session only)"),
     ("F10", "Quit"),
     ("Esc", "Cancel run / close dialog"),
+    ("← / →, Enter", "Choose and press a dialog button"),
     ("Space / Ins", "Mark file for context (file panel)"),
 ]
 
@@ -132,7 +133,12 @@ class ErrorScreen(ModalScreen[str | None]):
     """Red Far-style error box: what is missing for the LLMs and how to fix it.
     Dismisses with "retry", "models" or None (close)."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "close", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("escape", "close", "Close"),
+        Binding("left", "move(-1)", show=False),
+        Binding("right", "move(1)", show=False),
+    ]
+    _BUTTONS = ("retry", "models", "close")
 
     def __init__(self, issues: list[HealthIssue]) -> None:
         super().__init__()
@@ -162,6 +168,13 @@ class ErrorScreen(ModalScreen[str | None]):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         self.dismiss(None if event.button.id == "close" else event.button.id)
+
+    def action_move(self, delta: int) -> None:
+        """Arrow keys move focus between the buttons (no wrap-around), as in Far dialogs."""
+        current = self.focused.id if self.focused is not None else None
+        index = self._BUTTONS.index(current) if current in self._BUTTONS else 0
+        target = min(max(index + delta, 0), len(self._BUTTONS) - 1)
+        self.query_one(f"#{self._BUTTONS[target]}", Button).focus()
 
     def action_close(self) -> None:
         self.dismiss(None)

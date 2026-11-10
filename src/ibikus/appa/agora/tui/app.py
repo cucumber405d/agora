@@ -76,6 +76,7 @@ class AgoraApp(App[None]):
         self._service = service_factory(config)
         self._observability_state = observability_state
         self._health_check = health_check
+        self._health_issues: list[HealthIssue] = []  # result of the last probe
         self._cancel: asyncio.Event | None = None
         self.run_in_progress = False
         self.last_result: RunResult | None = None
@@ -130,16 +131,23 @@ class AgoraApp(App[None]):
 
     # -- LLM health -----------------------------------------------------------------------------
 
-    def check_health(self, fallback: str | None = None, announce_ok: bool = False) -> None:
+    def check_health(
+        self, fallback: str | None = None, announce_ok: bool = False, run_after: bool = False
+    ) -> None:
         """Probe the configured LLMs in the background; open the error box on problems.
-        `fallback` is shown when a run failed but the probe found nothing specific."""
+        `fallback` is shown when a run failed but the probe found nothing specific;
+        `run_after` starts the run if the probe comes back clean."""
         if self._health_check is not None:
-            self._run_health(fallback, announce_ok)
+            self._run_health(fallback, announce_ok, run_after)
 
     @work(exclusive=True, group="health")
-    async def _run_health(self, fallback: str | None, announce_ok: bool) -> None:
+    async def _run_health(self, fallback: str | None, announce_ok: bool, run_after: bool) -> None:
         assert self._health_check is not None
         issues = await self._health_check(self.config)
+        self._health_issues = issues
+        if not issues and run_after:
+            self.action_run()
+            return
         if not issues and fallback:
             issues = [
                 HealthIssue(("Run",), fallback, "Details are in the log (~/.agora/logs/agora.log).")
@@ -185,6 +193,10 @@ class AgoraApp(App[None]):
         prompt = self.query_one("#prompt", TextArea).text
         if not prompt.strip():
             self.notify("Prompt is empty", severity="warning")
+            return
+        if self._health_issues:
+            # The last probe found a problem: re-check instead of waiting for SDK retries.
+            self.check_health(run_after=True)
             return
         ctx = self._context_source().load(sorted(self.query_one(FilesPanel).marked))
         if ctx.skipped:
@@ -249,6 +261,9 @@ class AgoraApp(App[None]):
             self.notify(f"Saved to {path}")
 
     def action_models(self) -> None:
+        if isinstance(self.screen, ErrorScreen):
+            self.screen.dismiss("models")  # the dismiss callback opens the models dialog
+            return
         if self._dialog_open():
             return
         if self.run_in_progress:
