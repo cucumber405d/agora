@@ -15,6 +15,7 @@ switch to another model, **Close** (or Esc) keeps working.
 | `Invalid configuration: reflection.xxx: ...`, exit code 2 | Fix the named field in YAML or the matching `AGORA_*` variable. |
 | Run feed shows `provider_error: ... connection` | Ollama is not running or `base_url` is wrong. Start it (`ollama serve`) and pull the model (`ollama pull qwen2.5:7b`). |
 | `provider_error` with 401/403 | Wrong or expired API key. |
+| Feed: `generator_failed: … token limit … exceeded before any response was generated` | A thinking model (qwen3, qwen3.5) used the whole context for its hidden reasoning. Set `think: false` for the generator (and the critic), or raise `OLLAMA_CONTEXT_LENGTH`. Progress shows `It1 Gen waiting…` until the first answer token arrives. |
 | Feed: `critique failed: …`, final status `critic_failed` | The critic model could not produce a valid verdict even with the JSON schema; the run keeps the latest (ungraded) draft. Use a stronger or different critic model (e.g. `llama3.1:8b`, `qwen2.5:14b`) or a cloud model. |
 | Status line shows `Langfuse ✕` | `enabled: on` without keys, or Langfuse client failed to start; see the log. `○` means tracing is off. |
 | Garbage or banner text in the terminal | Should not happen: logs and warnings go to `~/.agora/logs/agora.log`. Report it with the log. |

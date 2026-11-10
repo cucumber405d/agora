@@ -133,3 +133,10 @@ def test_restart_clears_previous_run() -> None:
     p.apply(RunFinished(result=_result()))
     p.start(Context.empty())
     assert p.state == "running" and p.lines() == ["00:00 ✓ Context 0 f 0.0k"]
+
+
+def test_generator_waiting_for_first_token() -> None:
+    p = _started(Clock())
+    assert p.lines()[1].endswith("It1 Gen waiting…")
+    p.apply(DraftChunk(iteration=1, text="x" * 8))
+    assert p.lines()[1].endswith("It1 Gen ≈2 tk")

@@ -78,6 +78,9 @@ def build_settings(cfg: ModelConfig) -> ModelSettings:
     )
     if cfg.max_tokens is not None:
         settings["max_tokens"] = cfg.max_tokens
+    if cfg.provider == "ollama" and cfg.think is False:
+        # Verified against Ollama's OpenAI-compatible API: removes the "reasoning" phase.
+        settings["extra_body"] = {"reasoning_effort": "none"}
     return settings
 
 

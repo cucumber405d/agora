@@ -89,7 +89,7 @@ class RunProgress:
         match event:
             case IterationStarted(iteration=n, max_iterations=m):
                 self.total_steps = 2 * m
-                self._stages.append(_Stage(now, f"It{n} Gen"))
+                self._stages.append(_Stage(now, f"It{n} Gen", detail="waiting…"))
             case DraftChunk(text=t):
                 stage = self._current()
                 if stage is not None:

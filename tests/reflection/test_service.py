@@ -78,3 +78,15 @@ def test_builds_agents_from_config_local_only() -> None:
         {"reflection": {"critic": {"provider": "ollama", "name": "x", "temperature": 0.1}}}
     )
     assert ReflectionService(cfg).config is cfg
+
+
+async def test_generator_without_answer_is_explained() -> None:
+    """qwen3.5 spent the whole token budget thinking and produced no answer."""
+    err = UnexpectedModelBehavior(
+        "Model token limit (provider default) exceeded before any response was generated."
+    )
+    last = (await _all(_svc(make_agents([err], [c(9, approved=True)]))))[-1]
+    assert isinstance(last, RunFailed)
+    assert last.reason == "generator_failed"
+    assert "token limit" in last.message
+    assert "think: false" in last.message

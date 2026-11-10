@@ -60,7 +60,7 @@ class RunFinished(BaseModel):
     result: RunResult
 
 
-FailReason = Literal["cancelled", "provider_error", "invalid_input", "internal"]
+FailReason = Literal["cancelled", "provider_error", "generator_failed", "invalid_input", "internal"]
 
 
 class RunFailed(BaseModel):

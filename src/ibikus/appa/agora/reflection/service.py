@@ -8,7 +8,7 @@ import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
-from pydantic_ai.exceptions import ModelAPIError
+from pydantic_ai.exceptions import ModelAPIError, UnexpectedModelBehavior
 
 from ibikus.appa.agora.agents.critic import build_critic
 from ibikus.appa.agora.agents.generator import build_generator
@@ -59,6 +59,16 @@ def build_agents(config: AppConfig) -> Agents:
 def _to_failure(error: BaseException) -> RunFailed:
     if isinstance(error, ModelAPIError):
         return RunFailed(reason="provider_error", message=str(error))
+    if isinstance(error, UnexpectedModelBehavior):
+        # The critic node handles its own failures, so this comes from the generator.
+        return RunFailed(
+            reason="generator_failed",
+            message=(
+                f"Generator produced no usable answer: {error} "
+                "Hint: for thinking models (qwen3, qwen3.5) set think: false for the generator; "
+                "otherwise raise OLLAMA_CONTEXT_LENGTH or mark fewer files."
+            ),
+        )
     logger.error("Reflection run failed", exc_info=error)
     return RunFailed(reason="internal", message=f"{type(error).__name__}: {error}")
 

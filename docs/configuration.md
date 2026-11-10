@@ -38,6 +38,7 @@ Relative `reflection.prompts.*` paths are resolved against the current working d
 | `base_url` | none | Ollama default `http://localhost:11434/v1`; OpenAI-compatible servers |
 | `timeout_s` | `60` | per request |
 | `max_retries` | `3` | SDK-level retries with backoff (429, 5xx, connection errors) |
+| `think` | none | Ollama only. `false` disables the reasoning phase of thinking models (qwen3, qwen3.5): faster, and the context is not used up by reasoning. Unset keeps the model default. |
 
 ## Secrets
 

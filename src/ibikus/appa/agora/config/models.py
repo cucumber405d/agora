@@ -36,6 +36,9 @@ class ModelConfig(_Strict):
     base_url: str | None = None
     timeout_s: float = 60
     max_retries: int = 3
+    # Ollama thinking models (qwen3, qwen3.5, ...): False disables the reasoning phase,
+    # None keeps the model default. Ignored for cloud providers.
+    think: bool | None = None
 
 
 class PromptsConfig(_Strict):
