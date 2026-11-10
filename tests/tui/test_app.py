@@ -168,3 +168,31 @@ async def test_critique_stays_visible_after_final(tmp_path: Path) -> None:
         critique = app.query_one(RunFeed).query_one(".critique")
         assert "Solid." in str(critique.render())
         assert not any(isinstance(a, Collapsible) for a in critique.ancestors)
+
+
+async def test_progress_panel_after_run(tmp_path: Path) -> None:
+    from textual.widgets import ProgressBar
+
+    from ibikus.appa.agora.tui.progress import ProgressPanel
+
+    app = make_app(make_project(tmp_path))
+    async with app.run_test(size=(100, 40)) as pilot:
+        await run_prompt(pilot, "Q")
+        panel = app.query_one(ProgressPanel)
+        assert str(panel.border_title).startswith("Progress ─ ✓")
+        assert "Final approved 9" in str(panel.query_one("#progress-log").render())
+        assert panel.query_one(ProgressBar).percentage == 1.0
+
+
+async def test_ctrl_l_toggles_progress_panel(tmp_path: Path) -> None:
+    from ibikus.appa.agora.tui.progress import ProgressPanel
+
+    app = make_app(make_project(tmp_path))
+    async with app.run_test(size=(100, 40)) as pilot:
+        await pilot.pause()
+        panel = app.query_one(ProgressPanel)
+        assert panel.display
+        await pilot.press("ctrl+l")
+        assert not panel.display
+        await pilot.press("ctrl+l")
+        assert panel.display

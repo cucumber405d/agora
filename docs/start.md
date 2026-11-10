@@ -19,6 +19,7 @@ docker compose -f docker/langfuse/compose.yaml up -d   # UI: http://localhost:30
 ```
 
 Keys in the TUI: F1 help, F2 run, F3 view, F4 config, F5 copy, F6 save, F9 models, F10 quit,
-Esc cancel, Space/Ins mark a file.
+Esc cancel, Space/Ins or click on [ ] mark a file, Ctrl+R re-read the file panel,
+Backspace/Ctrl+PgUp parent directory, Ctrl+L show/hide the progress panel.
 
 More: `docs/architecture.md`, `docs/configuration.md`, `docs/troubleshooting.md`.

@@ -28,6 +28,7 @@ HELP_ROWS = [
     ("← / →, Enter", "Choose and press a dialog button"),
     ("Space / Ins / click [ ]", "Mark file for context (file panel)"),
     ("Ctrl+R", "Re-read the file panel from disk"),
+    ("Ctrl+L", "Show / hide the progress panel"),
     ("Backspace / Ctrl+PgUp", "File panel: go to the parent directory"),
 ]
 

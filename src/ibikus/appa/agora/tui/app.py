@@ -25,6 +25,7 @@ from ibikus.appa.agora.reflection.service import ReflectionService
 
 from .dialogs import ConfigScreen, ErrorScreen, HelpScreen, ModelsScreen, ViewerScreen
 from .files_panel import FilesPanel
+from .progress import ProgressPanel
 from .run_feed import RunFeed
 from .status_bar import StatusBar
 
@@ -59,6 +60,7 @@ class AgoraApp(App[None]):
         Binding("f10", "quit", "Quit", priority=True),
         Binding("escape", "cancel", "Cancel", priority=True),
         Binding("ctrl+enter", "run", "Run", show=False, priority=True),
+        Binding("ctrl+l", "toggle_progress", "Info", show=False, priority=True),
     ]
 
     def __init__(
@@ -90,7 +92,9 @@ class AgoraApp(App[None]):
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="main"):
-            yield FilesPanel(self.root, id="files")
+            with Vertical(id="left"):
+                yield FilesPanel(self.root, id="files")
+                yield ProgressPanel(id="progress")
             with Vertical(id="right"):
                 yield TextArea(id="prompt", soft_wrap=True, show_line_numbers=False)
                 yield RunFeed(id="feed")
@@ -210,6 +214,10 @@ class AgoraApp(App[None]):
         self.last_prompt, self.last_context = prompt, ctx
         self._run(prompt, ctx, self._cancel)
 
+    def action_toggle_progress(self) -> None:
+        panel = self.query_one(ProgressPanel)
+        panel.display = not panel.display
+
     def action_cancel(self) -> None:
         if self._dialog_open():
             self.screen.dismiss(None)
@@ -284,9 +292,12 @@ class AgoraApp(App[None]):
     @work(exclusive=True, group="run")
     async def _run(self, prompt: str, ctx: Context, cancel: asyncio.Event) -> None:
         feed = self.query_one(RunFeed)
+        progress = self.query_one(ProgressPanel)
+        progress.start(ctx)
         try:
             async for event in self._service.run(prompt, ctx, cancel):
                 feed.apply(event)
+                progress.apply(event)
                 if isinstance(event, RunFinished):
                     self.last_result = event.result
                 elif isinstance(event, RunFailed) and event.reason == "provider_error":

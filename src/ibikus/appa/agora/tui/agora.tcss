@@ -8,8 +8,12 @@ Screen {
     height: 1fr;
 }
 
-#files {
+#left {
     width: 32;
+}
+
+#files {
+    height: 1fr;
     background: #000080;
     border: double #00ffff;
     border-title-color: #ffffff;
@@ -152,4 +156,37 @@ ModalScreen {
 
 #feed .critique.warning {
     color: #ffff55;
+}
+
+/* Progress panel (under the file panel, like Far's info panel) */
+#progress {
+    height: 14;
+    background: #000080;
+    border: double #00ffff;
+    border-title-color: #ffffff;
+    padding: 0 1;
+}
+
+#progress-bar {
+    height: 1;
+    margin-bottom: 1;
+}
+
+#progress-bar Bar {
+    width: 1fr;
+}
+
+#progress-bar Bar > .bar--bar,
+#progress-bar Bar > .bar--complete {
+    color: #00ffff;
+    background: #000040;
+}
+
+#progress-scroll {
+    height: 1fr;
+    scrollbar-size-vertical: 1;
+}
+
+#progress-log {
+    color: #c0c0c0;
 }

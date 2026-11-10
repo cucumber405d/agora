@@ -15,6 +15,9 @@ def test_initial_screen(snap_compare: Any, tmp_path: Path) -> None:
 
 def test_after_approved_run(snap_compare: Any, tmp_path: Path) -> None:
     async def run(pilot: Pilot[Any]) -> None:
+        from ibikus.appa.agora.tui.progress import ProgressPanel
+
+        pilot.app.query_one(ProgressPanel).progress.clock = lambda: 0.0  # deterministic timings
         await run_prompt(pilot, "Explain the difference")
 
     app = make_app(make_project(tmp_path), drafts=["A short **answer**."])
