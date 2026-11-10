@@ -13,6 +13,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, MarkdownViewer, Select, Static, TextArea
 
 from ibikus.appa.agora.config import AppConfig, ModelConfig, Provider
+from ibikus.appa.agora.llm.health import HealthIssue
 
 HELP_ROWS = [
     ("F1", "Help"),
@@ -124,4 +125,43 @@ class ModelsScreen(ModalScreen[AppConfig | None]):
         self.dismiss(self._config.model_copy(update={"reflection": reflection}))
 
     def action_cancel_dialog(self) -> None:
+        self.dismiss(None)
+
+
+class ErrorScreen(ModalScreen[str | None]):
+    """Red Far-style error box: what is missing for the LLMs and how to fix it.
+    Dismisses with "retry", "models" or None (close)."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [Binding("escape", "close", "Close")]
+
+    def __init__(self, issues: list[HealthIssue]) -> None:
+        super().__init__()
+        self._issues = issues
+
+    def _body(self) -> Text:
+        text = Text()
+        for i, issue in enumerate(self._issues):
+            if i:
+                text.append("\n")
+            text.append(f"{', '.join(issue.roles)}: ", style="bold")
+            text.append(issue.problem + "\n", style="bold")
+            text.append(f"  → {issue.hint}\n")
+        return text
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="error-box") as box:
+            box.border_title = "LLM not available"
+            yield Static(self._body(), id="error-body")
+            with Horizontal(id="error-buttons"):
+                yield Button("Retry", id="retry")
+                yield Button("Models (F9)", id="models")
+                yield Button("Close", id="close")
+
+    def on_mount(self) -> None:
+        self.query_one("#retry", Button).focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.dismiss(None if event.button.id == "close" else event.button.id)
+
+    def action_close(self) -> None:
         self.dismiss(None)

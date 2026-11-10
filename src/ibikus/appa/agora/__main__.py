@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 from ibikus.appa.agora import __version__
 from ibikus.appa.agora.config import AppConfig, ConfigError, load_config
+from ibikus.appa.agora.llm.health import check_config
 from ibikus.appa.agora.logging_setup import setup_logging
 from ibikus.appa.agora.observability.langfuse import setup_observability
 from ibikus.appa.agora.reflection.service import ReflectionService
@@ -47,6 +48,7 @@ def main(argv: list[str] | None = None) -> int:
             root=args.root or Path.cwd(),
             service_factory=service_factory,
             observability_state=observability.state,
+            health_check=check_config,
         )
     except ConfigError as e:
         print(f"Invalid configuration:\n{e}", file=sys.stderr)

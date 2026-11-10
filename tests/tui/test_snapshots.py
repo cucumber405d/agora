@@ -28,3 +28,33 @@ def test_help_screen(snap_compare: Any, tmp_path: Path) -> None:
         await pilot.pause()
 
     assert snap_compare(make_app(make_project(tmp_path)), terminal_size=(100, 30), run_before=help_)
+
+
+def test_error_box(snap_compare: Any, tmp_path: Path) -> None:
+    from ibikus.appa.agora.config import AppConfig
+    from ibikus.appa.agora.llm.health import HealthIssue
+    from ibikus.appa.agora.tui.app import AgoraApp
+
+    from .helpers import factory, wait_group
+
+    issues = [
+        HealthIssue(
+            ("Generator", "Critic"),
+            "Ollama is not reachable at http://localhost:11434",
+            "Install Ollama from https://ollama.com and start it (ollama serve). "
+            "If it runs on another host, set base_url in config/agora.yaml.",
+        )
+    ]
+
+    async def health(cfg: AppConfig) -> list[HealthIssue]:
+        return issues
+
+    async def ready(pilot: Pilot[Any]) -> None:
+        await wait_tree(pilot)
+        await wait_group(pilot.app, "health")
+        await pilot.pause()
+
+    app = AgoraApp(
+        AppConfig(), root=make_project(tmp_path), service_factory=factory(), health_check=health
+    )
+    assert snap_compare(app, terminal_size=(100, 30), run_before=ready)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
 from typing import ClassVar
@@ -18,16 +18,18 @@ from textual.widgets import Footer, TextArea
 from ibikus.appa.agora.config import AppConfig, ConfigError
 from ibikus.appa.agora.context import Context, FileContextSource
 from ibikus.appa.agora.llm.factory import describe
-from ibikus.appa.agora.reflection.events import RunFinished, RunResult
+from ibikus.appa.agora.llm.health import HealthIssue
+from ibikus.appa.agora.reflection.events import RunFailed, RunFinished, RunResult
 from ibikus.appa.agora.reflection.export import render_run_markdown
 from ibikus.appa.agora.reflection.service import ReflectionService
 
-from .dialogs import ConfigScreen, HelpScreen, ModelsScreen, ViewerScreen
+from .dialogs import ConfigScreen, ErrorScreen, HelpScreen, ModelsScreen, ViewerScreen
 from .files_panel import FilesPanel
 from .run_feed import RunFeed
 from .status_bar import StatusBar
 
 ServiceFactory = Callable[[AppConfig], ReflectionService]
+HealthCheck = Callable[[AppConfig], Awaitable[list[HealthIssue]]]
 
 _KEY_ORDER = ["f1", "f2", "f3", "f4", "f5", "f6", "f9", "f10", "escape"]
 
@@ -65,6 +67,7 @@ class AgoraApp(App[None]):
         root: Path,
         service_factory: ServiceFactory,
         observability_state: str = "off",
+        health_check: HealthCheck | None = None,
     ) -> None:
         super().__init__()
         self.config = config
@@ -72,6 +75,7 @@ class AgoraApp(App[None]):
         self._service_factory = service_factory
         self._service = service_factory(config)
         self._observability_state = observability_state
+        self._health_check = health_check
         self._cancel: asyncio.Event | None = None
         self.run_in_progress = False
         self.last_result: RunResult | None = None
@@ -100,6 +104,7 @@ class AgoraApp(App[None]):
         self.query_one(RunFeed).border_title = "Run"
         self._refresh_status()
         self.query_one("#prompt", TextArea).focus()
+        self.check_health()
 
     def _refresh_status(self) -> None:
         r = self.config.reflection
@@ -122,6 +127,39 @@ class AgoraApp(App[None]):
         self._service = self._service_factory(config)
         self.config = config
         self._refresh_status()
+
+    # -- LLM health -----------------------------------------------------------------------------
+
+    def check_health(self, fallback: str | None = None, announce_ok: bool = False) -> None:
+        """Probe the configured LLMs in the background; open the error box on problems.
+        `fallback` is shown when a run failed but the probe found nothing specific."""
+        if self._health_check is not None:
+            self._run_health(fallback, announce_ok)
+
+    @work(exclusive=True, group="health")
+    async def _run_health(self, fallback: str | None, announce_ok: bool) -> None:
+        assert self._health_check is not None
+        issues = await self._health_check(self.config)
+        if not issues and fallback:
+            issues = [
+                HealthIssue(("Run",), fallback, "Details are in the log (~/.agora/logs/agora.log).")
+            ]
+        if issues:
+            self._show_errors(issues)
+        elif announce_ok:
+            self.notify("LLM connection OK")
+
+    def _show_errors(self, issues: list[HealthIssue]) -> None:
+        if self._dialog_open():
+            self.notify(issues[0].problem, severity="error", timeout=8)
+            return
+        self.push_screen(ErrorScreen(issues), self._on_error_closed)
+
+    def _on_error_closed(self, choice: str | None) -> None:
+        if choice == "retry":
+            self.check_health(announce_ok=True)
+        elif choice == "models":
+            self.action_models()
 
     def _dialog_open(self) -> bool:
         return isinstance(self.screen, ModalScreen)
@@ -224,6 +262,8 @@ class AgoraApp(App[None]):
                 self.rebuild_service(new_config)
             except ConfigError as e:
                 self.notify(str(e), severity="error", timeout=8)
+                return
+            self.check_health()
 
         self.push_screen(ModelsScreen(self.config), apply)
 
@@ -235,6 +275,8 @@ class AgoraApp(App[None]):
                 feed.apply(event)
                 if isinstance(event, RunFinished):
                     self.last_result = event.result
+                elif isinstance(event, RunFailed) and event.reason == "provider_error":
+                    self.check_health(fallback=f"{event.reason}: {event.message}")
         finally:
             self.run_in_progress = False
             self._cancel = None

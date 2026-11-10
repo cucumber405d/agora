@@ -90,11 +90,16 @@ async def mark(pilot: Pilot[Any], name: str) -> None:
 
 async def wait_run(app: Any) -> None:
     """Wait for the reflection worker only (DirectoryTree keeps its own loader running)."""
+    await wait_group(app, "run")
+
+
+async def wait_group(app: Any, group: str) -> None:
+    """Wait for all workers of one group to finish."""
     import asyncio
 
     from textual.worker import WorkerCancelled
 
-    for w in [w for w in app.workers if w.group == "run"]:
+    for w in [w for w in app.workers if w.group == group]:
         with contextlib.suppress(WorkerCancelled):
             await asyncio.wait_for(w.wait(), 10)
 

@@ -117,3 +117,33 @@ ModalScreen {
     height: 3;
     align-horizontal: right;
 }
+
+/* Red error box (Far style) */
+#error-box {
+    width: 80%;
+    max-width: 100;
+    height: auto;
+    background: #aa0000;
+    color: #ffffff;
+    border: double #ffffff;
+    border-title-color: #ffff00;
+    border-title-style: bold;
+    padding: 0 1;
+}
+
+#error-body {
+    background: #aa0000;
+    color: #ffffff;
+    margin: 1 0;
+}
+
+#error-buttons {
+    height: 3;
+    align-horizontal: center;
+}
+
+#error-buttons Button {
+    margin: 0 1;
+    background: #c0c0c0;
+    color: #000000;
+}
