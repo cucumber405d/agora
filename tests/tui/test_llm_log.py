@@ -70,3 +70,29 @@ async def test_run_failure_is_red_line(tmp_path: Path) -> None:
         await run_prompt(pilot, "Q")
         log = app.query_one(LlmLog)
         assert [e.direction for e in log.entries] == ["request", "error"]
+
+
+def test_request_preview_uses_summary_not_instructions() -> None:
+    e = _ex(
+        "request",
+        tokens=4308,
+        text="[instructions]\nYou are a helpful domain expert.\n\n[input]\n## Request\nбаллада",
+        preview="It2: revise after score 7, 6 issues",
+    )
+    line = format_exchange(e, 33).plain
+    assert line.endswith("It2: revise after score 7, 6 issues")
+    assert "You are" not in line
+
+
+def test_request_preview_falls_back_to_input_part() -> None:
+    e = _ex("request", text="[instructions]\nYou are X.\n\n[input]\n## Request\nбаллада")
+    line = format_exchange(e, 0).plain
+    assert "## Request баллада" in line and "You are" not in line
+
+
+def test_text_dialogs_are_high_contrast(tmp_path: Path) -> None:
+    css = (Path(__file__).resolve().parents[2] / "src/ibikus/appa/agora/tui/agora.tcss").read_text(
+        encoding="utf-8"
+    )
+    block = css[css.index(".text-dialog {") : css.index("}", css.index(".text-dialog {"))]
+    assert "background: #000000" in block and "color: #ffffff" in block

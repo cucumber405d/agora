@@ -28,12 +28,19 @@ def model_label(agent: Any) -> str:
     return str(getattr(model, "model_name", model))
 
 
-def request_exchange(role: Role, model: str, instructions: str, user_input: str) -> LlmExchange:
+def request_exchange(
+    role: Role, model: str, instructions: str, user_input: str, preview: str | None = None
+) -> LlmExchange:
     text = (
         f"[instructions]\n{instructions}\n\n[input]\n{user_input}" if instructions else user_input
     )
     return LlmExchange(
-        role=role, direction="request", model=model, text=text, tokens=estimate_tokens(text)
+        role=role,
+        direction="request",
+        model=model,
+        text=text,
+        tokens=estimate_tokens(text),
+        preview=preview,
     )
 
 

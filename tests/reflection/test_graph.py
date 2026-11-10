@@ -297,3 +297,14 @@ async def test_llm_log_marks_generator_failure_as_error() -> None:
                 events.append(payload)
     errors = [e for e in events if isinstance(e, LlmExchange) and e.direction == "error"]
     assert len(errors) == 1 and "refused" in errors[0].text
+
+
+async def test_request_previews_describe_the_step() -> None:
+    from ibikus.appa.agora.reflection.events import LlmExchange
+
+    agents = make_agents(["AB", "CD"], [c(5, issues=["x", "y"]), c(9, approved=True)])
+    ev, _ = await collect(build_graph(agents, cfg()), "a tale")  # English: no language retry
+    previews = [e.preview for e in ev if isinstance(e, LlmExchange) and e.direction == "request"]
+    assert previews[0] == "It1: «a tale»"
+    assert previews[1] == "It1: review draft 2 chars"
+    assert previews[2] == "It2: revise after score 5, 2 issues"

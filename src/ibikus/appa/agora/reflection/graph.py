@@ -115,7 +115,17 @@ def build_graph(
         )
         parts: list[str] = []
         gen_model = model_label(agents.generator)
-        write(request_exchange("generator", gen_model, agents.generator_instructions, user_input))
+        if critique is not None:
+            gen_preview = (
+                f"It{n}: revise after score {critique.score}, {len(critique.issues)} issues"
+            )
+        else:
+            gen_preview = f"It{n}: «{' '.join(state['prompt'].split())[:60]}»"
+        write(
+            request_exchange(
+                "generator", gen_model, agents.generator_instructions, user_input, gen_preview
+            )
+        )
         started = monotonic()
         with obs.iteration_span(n, "generate") as span, capture_run_messages() as messages:
             try:
@@ -155,7 +165,12 @@ def build_graph(
             language=_language(state),
         )
         crit_model = model_label(agents.critic)
-        write(request_exchange("critic", crit_model, agents.critic_instructions, user_input))
+        crit_preview = f"It{state['iteration']}: review draft {len(state['drafts'][-1])} chars"
+        write(
+            request_exchange(
+                "critic", crit_model, agents.critic_instructions, user_input, crit_preview
+            )
+        )
         started = monotonic()
         with (
             obs.iteration_span(state["iteration"], "critique") as span,

@@ -69,6 +69,7 @@ class LlmExchange(BaseModel):
     tokens: int | None = None
     seconds: float | None = None
     finish: str | None = None
+    preview: str | None = None  # short human summary of a request (shown instead of the text)
 
 
 class RunFinished(BaseModel):

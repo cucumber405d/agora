@@ -55,4 +55,4 @@ addopts = "-m 'not integration'"
 markers = ["integration: needs a real LLM"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["ASYNC240"]
+"tests/**" = ["ASYNC240", "RUF001"]

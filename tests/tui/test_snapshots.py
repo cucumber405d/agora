@@ -68,3 +68,24 @@ def test_error_box(snap_compare: Any, tmp_path: Path) -> None:
         AppConfig(), root=make_project(tmp_path), service_factory=factory(), health_check=health
     )
     assert snap_compare(app, terminal_size=(100, 30), run_before=ready)
+
+
+def test_log_entry_dialog(snap_compare: Any, tmp_path: Path) -> None:
+    from ibikus.appa.agora.reflection.events import LlmExchange
+    from ibikus.appa.agora.tui.dialogs import LogEntryScreen
+
+    entry = LlmExchange(
+        role="critic",
+        direction="request",
+        model="qwen3:14b",
+        text="[instructions]\nYou are a strict reviewer.\n\n[input]\n## Request\nрасскажи балладу",
+    )
+
+    async def open_entry(pilot: Pilot[Any]) -> None:
+        await wait_tree(pilot)
+        pilot.app.push_screen(LogEntryScreen(entry))
+        await pilot.pause()
+
+    assert snap_compare(
+        make_app(make_project(tmp_path)), terminal_size=(100, 30), run_before=open_entry
+    )

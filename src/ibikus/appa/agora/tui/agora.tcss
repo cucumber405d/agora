@@ -216,3 +216,25 @@ ModalScreen {
 .log-entry {
     height: 80%;
 }
+
+/* High-contrast text dialogs (log entry, F3 viewer, F4 config), like Far's internal viewer */
+.text-dialog {
+    background: #000000;
+    color: #ffffff;
+    border: double #ffff00;
+    border-title-color: #ffff00;
+    border-title-style: bold;
+}
+
+.text-dialog > .text-area--cursor-line {
+    background: #202020;
+}
+
+.text-dialog > .text-area--selection {
+    background: #005f87;
+}
+
+.text-dialog MarkdownViewer, .text-dialog Markdown {
+    background: #000000;
+    color: #ffffff;
+}

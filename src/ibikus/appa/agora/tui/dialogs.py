@@ -56,7 +56,9 @@ class ViewerScreen(_Dialog):
         self._markdown = markdown
 
     def compose(self) -> ComposeResult:
-        viewer = MarkdownViewer(self._markdown, show_table_of_contents=False, classes="dialog")
+        viewer = MarkdownViewer(
+            self._markdown, show_table_of_contents=False, classes="dialog text-dialog"
+        )
         viewer.border_title = "Final answer"
         yield viewer
 
@@ -70,7 +72,9 @@ class LogEntryScreen(_Dialog):
 
     def compose(self) -> ComposeResult:
         e = self._exchange
-        area = TextArea(e.text, read_only=True, soft_wrap=True, classes="dialog log-entry")
+        area = TextArea(
+            e.text, read_only=True, soft_wrap=True, classes="dialog text-dialog log-entry"
+        )
         area.border_title = f"{e.role} {e.direction} · {e.model}"
         yield area
 
@@ -81,7 +85,9 @@ class ConfigScreen(_Dialog):
         self._config = config
 
     def compose(self) -> ComposeResult:
-        area = TextArea(self._config.model_dump_json(indent=2), read_only=True, classes="dialog")
+        area = TextArea(
+            self._config.model_dump_json(indent=2), read_only=True, classes="dialog text-dialog"
+        )
         area.border_title = "Configuration (read-only)"
         yield area
 

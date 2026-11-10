@@ -23,7 +23,11 @@ def _mmss(seconds: float) -> str:
 
 def format_exchange(e: LlmExchange, elapsed: float) -> Text:
     """One-line, colour-coded summary of an exchange."""
-    preview = " ".join(e.text.split())[:_PREVIEW]
+    source = e.preview
+    if source is None:
+        # Skip the (always identical) instructions and show what is specific to this call.
+        source = e.text.split("[input]\n", 1)[1] if "[input]\n" in e.text else e.text
+    preview = " ".join(source.split())[:_PREVIEW]
     if e.direction == "request":
         detail = f"{e.model} {e.tokens} tk" if e.tokens is not None else e.model
     elif e.direction == "response":
