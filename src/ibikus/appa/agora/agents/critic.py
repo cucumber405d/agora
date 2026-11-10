@@ -18,6 +18,9 @@ _ECHOED_VALIDATION = re.compile(
 class Critique(BaseModel):
     approved: bool = Field(description="True only if the draft has no material issues.")
     score: int = Field(ge=0, le=10, description="Quality from 0 (useless) to 10 (excellent).")
+    feedback: str = Field(
+        description="Overall assessment in 1-3 sentences; always required, also when approved."
+    )
     issues: list[str] = Field(
         default_factory=list, description="Concrete problems in the draft; empty if approved."
     )
@@ -25,16 +28,28 @@ class Critique(BaseModel):
         default_factory=list, description="Concrete, actionable improvements."
     )
 
+    @field_validator("feedback")
+    @classmethod
+    def _feedback_is_real_text(cls, text: str) -> str:
+        text = text.strip()
+        if not text:
+            raise ValueError("feedback must not be empty")
+        _reject_echo(text)
+        return text
+
     @field_validator("issues", "suggestions")
     @classmethod
     def _no_echoed_validation_errors(cls, items: list[str]) -> list[str]:
         for item in items:
-            if _ECHOED_VALIDATION.search(item):
-                raise ValueError(
-                    "must describe the draft, not the response format; "
-                    f"got a validation message: {item!r}"
-                )
+            _reject_echo(item)
         return items
+
+
+def _reject_echo(text: str) -> None:
+    if _ECHOED_VALIDATION.search(text):
+        raise ValueError(
+            f"must describe the draft, not the response format; got a validation message: {text!r}"
+        )
 
 
 def critic_output(model: Model) -> type[Critique] | NativeOutput[Critique]:

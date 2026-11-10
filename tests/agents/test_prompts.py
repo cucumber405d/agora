@@ -37,11 +37,18 @@ def test_generator_context_before_request() -> None:
 
 
 def test_generator_revision_includes_draft_and_critique() -> None:
-    crit = Critique(approved=False, score=5, issues=["too vague"], suggestions=["add example"])
+    crit = Critique(
+        approved=False,
+        score=5,
+        feedback="Readable but thin.",
+        issues=["too vague"],
+        suggestions=["add example"],
+    )
     s = build_generator_input("Q", Context.empty(), "D1", crit)
     assert s.index("## Request") < s.index("## Previous draft") < s.index("## Critique")
     assert "D1" in s
     assert "score: 5" in s
+    assert "Feedback: Readable but thin." in s
     assert "- too vague" in s
     assert "- add example" in s
     assert "Revise the previous draft to address every issue in the critique." in s

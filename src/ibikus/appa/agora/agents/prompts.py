@@ -53,7 +53,8 @@ def build_generator_input(
         sections.append(f"## Previous draft\n{previous_draft}")
         if critique is not None:
             sections.append(
-                f"## Critique\nscore: {critique.score}\n\nIssues:\n{_bullets(critique.issues)}"
+                f"## Critique\nscore: {critique.score}\n\nFeedback: {critique.feedback}"
+                f"\n\nIssues:\n{_bullets(critique.issues)}"
                 f"\n\nSuggestions:\n{_bullets(critique.suggestions)}"
             )
         sections.append(REVISE_INSTRUCTION)

@@ -12,8 +12,9 @@ from ibikus.appa.agora.agents.generator import build_generator
 
 
 async def test_critic_returns_typed_critique() -> None:
-    agent = build_critic(TestModel(custom_output_args={"approved": True, "score": 9}), {}, "i")
-    assert (await agent.run("x")).output == Critique(approved=True, score=9)
+    args = {"approved": True, "score": 9, "feedback": "Good."}
+    agent = build_critic(TestModel(custom_output_args=args), {}, "i")
+    assert (await agent.run("x")).output == Critique(approved=True, score=9, feedback="Good.")
 
 
 def _reply(info: AgentInfo, payload: dict[str, object] | str) -> ModelResponse:
@@ -53,13 +54,18 @@ def test_critique_rejects_echoed_validation_errors() -> None:
     """qwen2.5:7b copied the retry prompt ("Field 'approved' is required") into issues."""
     with pytest.raises(ValidationError):
         Critique.model_validate(
-            {"approved": False, "score": 0, "issues": ["Field 'approved' is required"]}
+            {
+                "approved": False,
+                "score": 0,
+                "feedback": "x",
+                "issues": ["Field 'approved' is required"],
+            }
         )
 
 
 def test_critique_keeps_normal_issues() -> None:
     c = Critique.model_validate(
-        {"approved": False, "score": 5, "issues": ["Field names are vague"]}
+        {"approved": False, "score": 5, "feedback": "Ok.", "issues": ["Field names are vague"]}
     )
     assert c.issues == ["Field names are vague"]
 
@@ -83,7 +89,7 @@ async def test_critic_sends_json_schema_to_ollama() -> None:
 
     def handler(req: httpx.Request) -> httpx.Response:
         bodies.append(json.loads(req.content))
-        content = json.dumps({"approved": True, "score": 9})
+        content = json.dumps({"approved": True, "score": 9, "feedback": "Good."})
         return httpx.Response(
             200,
             json={
@@ -108,10 +114,10 @@ async def test_critic_sends_json_schema_to_ollama() -> None:
     )
     model = OllamaModel("qwen2.5:7b", provider=OllamaProvider(openai_client=client))
     result = await build_critic(model, {}, "i").run("x")
-    assert result.output == Critique(approved=True, score=9)
+    assert result.output == Critique(approved=True, score=9, feedback="Good.")
     fmt = bodies[0]["response_format"]
     assert isinstance(fmt, dict) and fmt["type"] == "json_schema"
-    assert set(fmt["json_schema"]["schema"]["required"]) >= {"approved", "score"}
+    assert set(fmt["json_schema"]["schema"]["required"]) >= {"approved", "score", "feedback"}
     assert not bodies[0].get("tools")
 
 
@@ -124,3 +130,22 @@ async def test_generator_streams_text() -> None:
     async with agent.run_stream("x") as result:
         deltas = [d async for d in result.stream_text(delta=True, debounce_by=None)]
     assert "".join(deltas) == "hello"
+
+
+def test_critique_requires_feedback() -> None:
+    with pytest.raises(ValidationError, match="feedback"):
+        Critique.model_validate({"approved": True, "score": 9})
+
+
+def test_feedback_must_not_be_empty_or_echo() -> None:
+    for bad in ("", "   ", "Field 'score' is required"):
+        with pytest.raises(ValidationError):
+            Critique.model_validate({"approved": True, "score": 9, "feedback": bad})
+
+
+def test_critic_instructions_are_strict_about_context() -> None:
+    from ibikus.appa.agora.agents.prompts import load_instructions
+
+    text = load_instructions("critic", None).lower()
+    assert "feedback" in text
+    assert "not supported by the context" in text

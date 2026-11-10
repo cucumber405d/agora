@@ -24,6 +24,7 @@ def render_run_markdown(prompt: str, result: RunResult, created: datetime) -> st
     for rec in result.history:
         c = rec.critique
         lines += ["", f"### Iteration {rec.iteration} — score {c.score}", "", rec.draft, ""]
+        lines += [f"**Critic:** {c.feedback}", ""]
         lines += ["**Issues:**", ""] + ([f"- {i}" for i in c.issues] or ["- (none)"])
         if c.suggestions:
             lines += ["", "**Suggestions:**", "", *[f"- {s}" for s in c.suggestions]]

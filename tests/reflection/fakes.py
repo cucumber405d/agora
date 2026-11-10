@@ -76,8 +76,20 @@ def cfg(**kw: Any) -> ReflectionConfig:
     return ReflectionConfig.model_validate(kw)
 
 
-def c(score: int, approved: bool = False, issues: list[str] | None = None) -> Critique:
-    return Critique(approved=approved, score=score, issues=issues or [])
+def c(
+    score: int,
+    approved: bool = False,
+    issues: list[str] | None = None,
+    feedback: str = "Overall fine.",
+    suggestions: list[str] | None = None,
+) -> Critique:
+    return Critique(
+        approved=approved,
+        score=score,
+        feedback=feedback,
+        issues=issues or [],
+        suggestions=suggestions or [],
+    )
 
 
 async def collect(graph: Any, prompt: str) -> tuple[list[RunEvent], ReflectionState]:

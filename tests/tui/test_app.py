@@ -126,3 +126,45 @@ async def test_critic_failure_shows_warning_and_final(tmp_path: Path) -> None:
         assert "critique failed:" in text
         assert "Final (critic_failed, score 0)" in text
         assert app.last_result is not None and app.last_result.final == "Answer"
+
+
+async def test_feed_shows_full_critique(tmp_path: Path) -> None:
+    from tests.reflection.fakes import c
+
+    crit = c(5, issues=["Invented facts"], suggestions=["Stick to the CV"], feedback="Too loose.")
+    app = make_app(make_project(tmp_path), drafts=["A", "B"], critiques=[crit, c(9, approved=True)])
+    async with app.run_test(size=(100, 30)) as pilot:
+        await run_prompt(pilot, "Q")
+        text = _feed_text(app)
+        assert "critique: score 5/10" in text
+        assert "Too loose." in text
+        assert "Issues:\n  - Invented facts" in text
+        assert "Suggestions:\n  - Stick to the CV" in text
+
+
+async def test_iterations_collapse_when_final_arrives(tmp_path: Path) -> None:
+    from textual.widgets import Collapsible
+
+    from tests.reflection.fakes import c
+
+    app = make_app(make_project(tmp_path), drafts=["A", "B"], critiques=[c(5), c(9, approved=True)])
+    async with app.run_test(size=(100, 30)) as pilot:
+        await run_prompt(pilot, "Q")
+        boxes = list(app.query_one(RunFeed).query(Collapsible))
+        assert len(boxes) == 2
+        assert all(b.collapsed for b in boxes)
+
+
+async def test_critique_stays_visible_after_final(tmp_path: Path) -> None:
+    from textual.widgets import Collapsible
+
+    from tests.reflection.fakes import c
+
+    app = make_app(
+        make_project(tmp_path), drafts=["A"], critiques=[c(9, approved=True, feedback="Solid.")]
+    )
+    async with app.run_test(size=(100, 30)) as pilot:
+        await run_prompt(pilot, "Q")
+        critique = app.query_one(RunFeed).query_one(".critique")
+        assert "Solid." in str(critique.render())
+        assert not any(isinstance(a, Collapsible) for a in critique.ancestors)

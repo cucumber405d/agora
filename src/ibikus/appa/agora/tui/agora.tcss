@@ -48,6 +48,8 @@ Screen {
 
 #feed .critique {
     color: #00ffff;
+    padding-left: 2;
+    margin-bottom: 1;
 }
 
 #feed .final {

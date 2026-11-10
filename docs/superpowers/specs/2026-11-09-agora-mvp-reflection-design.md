@@ -58,7 +58,7 @@ tests/  docs/  config/agora.yaml  prompts/  docker/langfuse/compose.yaml  pyproj
 
 - `ModelConfig`: `provider`, `name`, `temperature`, `max_tokens`, `base_url?`. API-ключи — только из env.
 - `ReflectionConfig`: `generator: ModelConfig`, `critic: ModelConfig`, `max_iterations`, `approve_threshold`, пути к промптам.
-- `Critique` (тип вывода критика): `approved: bool`, `score: int (0..10)`, `issues: list[str]`, `suggestions: list[str]`.
+- `Critique` (тип вывода критика): `approved: bool`, `score: int (0..10)`, `feedback: str` (общий отзыв, обязателен всегда; добавлен 2026-11-10), `issues: list[str]`, `suggestions: list[str]`.
 - `ReflectionState`: `prompt`, `context`, `iteration`, `drafts[]`, `critiques[]`, `final`, `status`.
 - `RunEvent` (discriminated union): `IterationStarted`, `DraftChunk`, `DraftDone`, `CritiqueDone`, `RunFinished`, `RunFailed`.
 

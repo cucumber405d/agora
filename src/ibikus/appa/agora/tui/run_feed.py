@@ -71,11 +71,12 @@ class RunFeed(VerticalScroll):
                 self._max = m
                 for it in self._iters.values():
                     it.box.collapsed = True
+                # Only the draft is collapsible; the critique below it always stays visible.
                 draft, critique = Static(Text(""), classes="draft"), Static("", classes="critique")
-                box = Collapsible(draft, critique, title=f"Iter {n}", collapsed=False)
+                box = Collapsible(draft, title=f"Iter {n}", collapsed=False)
                 self._iters[n] = _Iteration(box, draft, critique)
                 self._plain.append(f"Iter {n}")
-                self.mount(box)
+                self.mount(box, critique)
                 self._update_title(n)
             case DraftChunk(iteration=n, text=t):
                 it = self._iters[n]
@@ -88,7 +89,11 @@ class RunFeed(VerticalScroll):
             case CritiqueDone(iteration=n, critique=c):
                 self._scores.append(c.score)
                 lines = [f"critique: score {c.score}/10" + (" (approved)" if c.approved else "")]
-                lines += [f"  - {i}" for i in c.issues]
+                lines.append(c.feedback)
+                if c.issues:
+                    lines += ["Issues:", *[f"  - {i}" for i in c.issues]]
+                if c.suggestions:
+                    lines += ["Suggestions:", *[f"  - {s}" for s in c.suggestions]]
                 body = "\n".join(lines)
                 self._plain.append(body)
                 self._iters[n].critique.update(Text(body, style="italic"))
@@ -101,6 +106,8 @@ class RunFeed(VerticalScroll):
                 self._iters[n].critique.add_class("warning")
                 self._iters[n].box.title = f"Iter {n} ─ not graded"
             case RunFinished(result=r):
+                for it in self._iters.values():  # the final text is shown once, below
+                    it.box.collapsed = True
                 self._add(f"Final ({r.status}, score {r.best_score})", r.final, "final")
             case RunFailed(reason=reason, message=msg):
                 self._add("Error", f"{reason}: {msg}", "error")

@@ -23,4 +23,5 @@ def test_render_run_markdown() -> None:
     assert "## Final answer (approved, score 9)\n\nAnswer B" in md
     assert "### Iteration 1 — score 5" in md
     assert "- too short" in md
+    assert "Overall fine." in md  # critic feedback
     assert md.index("### Iteration 1") < md.index("### Iteration 2")
