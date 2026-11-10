@@ -116,3 +116,13 @@ async def test_markup_in_model_output_is_not_interpreted(tmp_path: Path) -> None
     async with app.run_test(size=(100, 30)) as pilot:
         await run_prompt(pilot, "Q")
         assert "[bold]x[/bold] [link=y]" in _feed_text(app)
+
+
+async def test_critic_failure_shows_warning_and_final(tmp_path: Path) -> None:
+    app = make_app(make_project(tmp_path), drafts=["Answer"], critiques=["**Score:** 8"])
+    async with app.run_test(size=(100, 30)) as pilot:
+        await run_prompt(pilot, "Q")
+        text = _feed_text(app)
+        assert "critique failed:" in text
+        assert "Final (critic_failed, score 0)" in text
+        assert app.last_result is not None and app.last_result.final == "Answer"

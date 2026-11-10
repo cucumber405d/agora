@@ -18,6 +18,7 @@ from ibikus.appa.agora.observability.langfuse import NoopObservability, Observab
 
 from .events import (
     CritiqueDone,
+    CritiqueFailed,
     DraftChunk,
     DraftDone,
     IterationRecord,
@@ -35,15 +36,13 @@ class Agents:
     critic_settings: ModelSettings
 
 
-class CriticInvalidError(Exception):
-    """The critic did not return a valid Critique even after output retries."""
-
-
 def is_approved(c: Critique, threshold: int) -> bool:
     return c.approved or c.score >= threshold
 
 
 def route(state: ReflectionState, cfg: ReflectionConfig) -> Literal["generate", "finalize"]:
+    if state["critic_error"] is not None:
+        return "finalize"
     if is_approved(state["critiques"][-1], cfg.approve_threshold):
         return "finalize"
     if state["iteration"] >= cfg.max_iterations:
@@ -62,6 +61,19 @@ def select_final(drafts: list[str], critiques: list[Critique], approved: bool) -
 
 def to_result(state: ReflectionState, cfg: ReflectionConfig) -> RunResult:
     drafts, critiques = state["drafts"], state["critiques"]
+    history = [
+        IterationRecord(iteration=i + 1, draft=d, critique=k)
+        for i, (d, k) in enumerate(zip(drafts, critiques, strict=False))
+    ]
+    if state["critic_error"] is not None:
+        # The latest draft already includes the last valid feedback, but is ungraded.
+        return RunResult(
+            final=drafts[-1],
+            status="critic_failed",
+            iterations=state["iteration"],
+            best_score=max((k.score for k in critiques), default=0),
+            history=history,
+        )
     approved = is_approved(critiques[-1], cfg.approve_threshold)
     final, idx = select_final(drafts, critiques, approved)
     return RunResult(
@@ -69,10 +81,7 @@ def to_result(state: ReflectionState, cfg: ReflectionConfig) -> RunResult:
         status="approved" if approved else "max_iterations",
         iterations=state["iteration"],
         best_score=critiques[idx].score,
-        history=[
-            IterationRecord(iteration=i + 1, draft=d, critique=k)
-            for i, (d, k) in enumerate(zip(drafts, critiques, strict=True))
-        ],
+        history=history,
     )
 
 
@@ -109,7 +118,10 @@ def build_graph(
             try:
                 run = await agents.critic.run(user_input, model_settings=agents.critic_settings)
             except UnexpectedModelBehavior as e:
-                raise CriticInvalidError(str(e)) from e
+                message = f"{e}{f' ({e.__cause__})' if e.__cause__ else ''}"
+                span.update(metadata={"critic_error": message})
+                write(CritiqueFailed(iteration=state["iteration"], message=message))
+                return {"critic_error": message}
             span.update(
                 output=run.output.model_dump(),
                 metadata={"score": run.output.score, "approved": run.output.approved},

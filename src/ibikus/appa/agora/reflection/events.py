@@ -17,7 +17,7 @@ class IterationRecord(BaseModel):
 
 class RunResult(BaseModel):
     final: str
-    status: Literal["approved", "max_iterations"]
+    status: Literal["approved", "max_iterations", "critic_failed"]
     iterations: int
     best_score: int
     history: list[IterationRecord]
@@ -47,12 +47,20 @@ class CritiqueDone(BaseModel):
     critique: Critique
 
 
+class CritiqueFailed(BaseModel):
+    """The critic could not produce a valid verdict; the run finishes with the latest draft."""
+
+    kind: Literal["critique_failed"] = "critique_failed"
+    iteration: int
+    message: str
+
+
 class RunFinished(BaseModel):
     kind: Literal["run_finished"] = "run_finished"
     result: RunResult
 
 
-FailReason = Literal["cancelled", "provider_error", "critic_invalid", "invalid_input", "internal"]
+FailReason = Literal["cancelled", "provider_error", "invalid_input", "internal"]
 
 
 class RunFailed(BaseModel):
@@ -62,6 +70,12 @@ class RunFailed(BaseModel):
 
 
 RunEvent = Annotated[
-    IterationStarted | DraftChunk | DraftDone | CritiqueDone | RunFinished | RunFailed,
+    IterationStarted
+    | DraftChunk
+    | DraftDone
+    | CritiqueDone
+    | CritiqueFailed
+    | RunFinished
+    | RunFailed,
     Field(discriminator="kind"),
 ]

@@ -15,7 +15,7 @@ switch to another model, **Close** (or Esc) keeps working.
 | `Invalid configuration: reflection.xxx: ...`, exit code 2 | Fix the named field in YAML or the matching `AGORA_*` variable. |
 | Run feed shows `provider_error: ... connection` | Ollama is not running or `base_url` is wrong. Start it (`ollama serve`) and pull the model (`ollama pull qwen2.5:7b`). |
 | `provider_error` with 401/403 | Wrong or expired API key. |
-| `critic_invalid` | The critic model could not produce the structured verdict. Use a stronger critic model or lower its temperature. |
+| Feed: `critique failed: …`, final status `critic_failed` | The critic model could not produce a valid verdict even with the JSON schema; the run keeps the latest (ungraded) draft. Use a stronger or different critic model (e.g. `llama3.1:8b`, `qwen2.5:14b`) or a cloud model. |
 | Status line shows `Langfuse ✕` | `enabled: on` without keys, or Langfuse client failed to start; see the log. `○` means tracing is off. |
 | Garbage or banner text in the terminal | Should not happen: logs and warnings go to `~/.agora/logs/agora.log`. Report it with the log. |
 | `Ctrl+Enter` does nothing | Some terminals cannot send it; use `F2`. |

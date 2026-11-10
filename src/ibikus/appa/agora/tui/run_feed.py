@@ -10,6 +10,7 @@ from textual.widgets import Collapsible, Static
 
 from ibikus.appa.agora.reflection.events import (
     CritiqueDone,
+    CritiqueFailed,
     DraftChunk,
     DraftDone,
     IterationStarted,
@@ -93,6 +94,12 @@ class RunFeed(VerticalScroll):
                 self._iters[n].critique.update(Text(body, style="italic"))
                 self._iters[n].box.title = f"Iter {n} ─ score {c.score}"
                 self._update_title(n)
+            case CritiqueFailed(iteration=n, message=msg):
+                body = f"critique failed: {msg}"
+                self._plain.append(body)
+                self._iters[n].critique.update(Text(body))
+                self._iters[n].critique.add_class("warning")
+                self._iters[n].box.title = f"Iter {n} ─ not graded"
             case RunFinished(result=r):
                 self._add(f"Final ({r.status}, score {r.best_score})", r.final, "final")
             case RunFailed(reason=reason, message=msg):

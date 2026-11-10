@@ -19,7 +19,7 @@ from ibikus.appa.agora.llm.factory import build_model, build_settings, describe
 from ibikus.appa.agora.observability.langfuse import NoopObservability, Observability
 
 from .events import RunEvent, RunFailed, RunFinished
-from .graph import Agents, CriticInvalidError, build_graph, to_result
+from .graph import Agents, build_graph, to_result
 from .state import initial_state
 
 logger = logging.getLogger(__name__)
@@ -59,10 +59,6 @@ def build_agents(config: AppConfig) -> Agents:
 def _to_failure(error: BaseException) -> RunFailed:
     if isinstance(error, ModelAPIError):
         return RunFailed(reason="provider_error", message=str(error))
-    if isinstance(error, CriticInvalidError):
-        return RunFailed(
-            reason="critic_invalid", message=f"Critic returned invalid output: {error}"
-        )
     logger.error("Reflection run failed", exc_info=error)
     return RunFailed(reason="internal", message=f"{type(error).__name__}: {error}")
 

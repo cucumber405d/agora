@@ -35,16 +35,21 @@ START -> generate -> critique --approved or score >= threshold--> finalize -> EN
 - `generate` streams tokens (`DraftChunk`) via LangGraph's custom stream mode
   (`get_stream_writer`). From iteration 2 it receives the previous draft and critique.
 - `critique` returns a typed `Critique` (`approved`, `score` 0-10, `issues`, `suggestions`),
-  with 2 output retries; failure becomes `CriticInvalidError`.
+  with 2 output retries. Where the model supports it (Ollama, Anthropic, OpenAI, OpenRouter)
+  the verdict is requested as a JSON-schema constrained response (`NativeOutput`), otherwise
+  via a tool call. Issues that merely echo validation messages are rejected. If the critic
+  still fails, the node emits `CritiqueFailed` and the run finishes with the latest draft
+  (status `critic_failed`) instead of being lost.
 - The final answer is the last draft when approved, otherwise the highest-scored draft
   (later wins ties).
 
 ## Run events
 
 `ReflectionService.run(prompt, context, cancel)` yields:
-`IterationStarted`, `DraftChunk`, `DraftDone`, `CritiqueDone`, and ends with exactly one of
+`IterationStarted`, `DraftChunk`, `DraftDone`, `CritiqueDone`, `CritiqueFailed`, and ends with exactly one of
 `RunFinished(result)` or `RunFailed(reason, message)`, where reason is one of
-`cancelled`, `provider_error`, `critic_invalid`, `invalid_input`, `internal`.
+`cancelled`, `provider_error`, `invalid_input`, `internal`.
+`RunResult.status` is `approved`, `max_iterations` or `critic_failed`.
 
 The graph runs in an inner task that feeds a queue; cancellation (`asyncio.Event`) cancels the
 task and yields `RunFailed("cancelled")`.

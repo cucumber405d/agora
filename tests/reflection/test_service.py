@@ -42,9 +42,10 @@ async def test_provider_error_becomes_run_failed() -> None:
     assert "connection refused" in last.message
 
 
-async def test_critic_invalid_becomes_run_failed() -> None:
+async def test_critic_failure_still_finishes_run() -> None:
     last = (await _all(_svc(make_agents(["A"], [UnexpectedModelBehavior("bad")]))))[-1]
-    assert isinstance(last, RunFailed) and last.reason == "critic_invalid"
+    assert isinstance(last, RunFinished)
+    assert (last.result.status, last.result.final) == ("critic_failed", "A")
 
 
 async def test_unexpected_exception_is_internal() -> None:

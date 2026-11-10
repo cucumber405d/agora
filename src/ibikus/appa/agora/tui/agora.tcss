@@ -147,3 +147,7 @@ ModalScreen {
     background: #c0c0c0;
     color: #000000;
 }
+
+#feed .critique.warning {
+    color: #ffff55;
+}

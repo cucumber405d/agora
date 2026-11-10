@@ -1,9 +1,7 @@
-import pytest
 from pydantic_ai.exceptions import UnexpectedModelBehavior
 
 from ibikus.appa.agora.context import Context
 from ibikus.appa.agora.reflection.graph import (
-    CriticInvalidError,
     build_graph,
     is_approved,
     route,
@@ -68,10 +66,29 @@ async def test_second_generation_sees_critique() -> None:
     assert "missing example" in rec.generator_inputs[1]
 
 
-async def test_critic_invalid_raises() -> None:
-    agents = make_agents(["A"], [UnexpectedModelBehavior("bad json")])
-    with pytest.raises(CriticInvalidError):
-        await collect(build_graph(agents, cfg()), "Q")
+async def test_critic_failure_later_keeps_run_with_latest_draft() -> None:
+    conf = cfg(max_iterations=3)
+    agents = make_agents(["A", "B"], [c(5), UnexpectedModelBehavior("bad json")])
+    ev, st = await collect(build_graph(agents, conf), "Q")
+    r = to_result(st, conf)
+    assert (r.status, r.final, r.iterations, r.best_score) == ("critic_failed", "B", 2, 5)
+    assert [h.iteration for h in r.history] == [1]  # only graded iterations
+    failed = [e for e in ev if e.kind == "critique_failed"]
+    assert len(failed) == 1 and failed[0].iteration == 2
+    assert "bad json" in failed[0].message
+
+
+async def test_critic_failure_first_iteration() -> None:
+    conf = cfg()
+    _, st = await collect(build_graph(make_agents(["A"], ["**Score:** 8"]), conf), "Q")
+    r = to_result(st, conf)
+    assert (r.status, r.final, r.iterations, r.best_score, r.history) == (
+        "critic_failed",
+        "A",
+        1,
+        0,
+        [],
+    )
 
 
 def test_select_final_pure() -> None:

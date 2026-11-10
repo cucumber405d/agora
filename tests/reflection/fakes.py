@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
-from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from ibikus.appa.agora.agents.critic import Critique, build_critic
@@ -29,7 +29,7 @@ def _last_user_text(messages: list[ModelMessage]) -> str:
 
 def make_agents(
     drafts: Sequence[str | Exception],
-    critiques: Sequence[Critique | Exception],
+    critiques: Sequence[Critique | Exception | str],
     *,
     chunk_delay: float = 0.0,
     recorder: Recorder | None = None,
@@ -58,6 +58,10 @@ def make_agents(
         crit_calls += 1
         if isinstance(item, Exception):
             raise item
+        if isinstance(item, str):  # free text instead of the structured verdict
+            return ModelResponse(parts=[TextPart(item)])
+        if info.model_request_parameters.output_mode == "native":
+            return ModelResponse(parts=[TextPart(item.model_dump_json())])
         return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, item.model_dump())])
 
     return Agents(
