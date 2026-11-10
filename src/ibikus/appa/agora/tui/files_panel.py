@@ -1,11 +1,13 @@
 """Far-like file panel: a directory tree where files can be marked with Space/Ins.
 
-Folders are re-read from disk every time they are re-opened; Ctrl+R re-reads the whole panel;
-Backspace / Ctrl+PgUp move the panel root to the parent directory."""
+Folders are re-read from disk every time they are re-opened; Ctrl+R re-reads the whole panel.
+The parent directory is reached via the ".." entry (Enter / click), Backspace in the panel, or
+Ctrl+PgUp from anywhere (app-level binding)."""
 
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from pathlib import Path
 from typing import ClassVar
 
@@ -25,7 +27,6 @@ class FilesPanel(DirectoryTree):
         Binding("insert", "toggle_mark", "Mark", show=False),
         Binding("ctrl+r", "reload_panel", "Reread", show=False),
         Binding("backspace", "go_parent", "Parent", show=False),
-        Binding("ctrl+pageup", "go_parent", "Parent", show=False),
     ]
 
     class MarkedChanged(Message):
@@ -36,6 +37,7 @@ class FilesPanel(DirectoryTree):
     def __init__(self, path: Path, *, id: str | None = None) -> None:
         super().__init__(path, id=id)
         self.marked: set[Path] = set()
+        self._up_node: TreeNode[DirEntry] | None = None  # the ".." entry, if any
 
     def on_mount(self) -> None:
         self._update_title()
@@ -71,7 +73,24 @@ class FilesPanel(DirectoryTree):
         self.path = current.parent
         self._update_title()
 
+    def _populate_node(self, node: TreeNode[DirEntry], content: Iterable[Path]) -> None:
+        super()._populate_node(node, content)
+        if node is self.root:
+            current = Path(self.path).resolve()
+            self._up_node = None
+            if current.parent != current:
+                self._up_node = node.add(
+                    "..", data=DirEntry(current.parent), before=0, allow_expand=False
+                )
+
+    def on_directory_tree_directory_selected(self, event: DirectoryTree.DirectorySelected) -> None:
+        if event.node is self._up_node:
+            event.stop()
+            self.action_go_parent()
+
     def render_label(self, node: TreeNode[DirEntry], base_style: Style, style: Style) -> Text:
+        if node is self._up_node:
+            return Text("..", style=base_style + style)
         label = super().render_label(node, base_style, style)
         if node.data is None or node.allow_expand:
             return label
@@ -80,7 +99,7 @@ class FilesPanel(DirectoryTree):
 
     def _toggle(self, node: TreeNode[DirEntry] | None) -> bool:
         """Toggle the mark of a file node. Returns False for folders / empty lines."""
-        if node is None or node.data is None or node.allow_expand:
+        if node is None or node.data is None or node.allow_expand or node is self._up_node:
             return False
         path = node.data.path.resolve()
         if path in self.marked:

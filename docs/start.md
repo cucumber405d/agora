@@ -74,7 +74,8 @@ At start-up Agora probes the models; if Ollama is not running or a model is miss
 
 Keys: F1 help, F2 run (Ctrl+Enter), F3 view answer, F4 config, F5 copy answer, F6 save run
 (`./agora-runs/`), F9 models, F10 quit, Esc cancel / close. File panel: Space/Ins or click on
-`[ ]` marks a file, Ctrl+R re-reads, Backspace/Ctrl+PgUp goes to the parent directory.
+`[ ]` marks a file, Ctrl+R re-reads; parent directory: `..` (Enter/click), Ctrl+PgUp from
+anywhere, or Backspace in the file panel.
 Ctrl+L shows/hides the progress panel. LLM log: Enter opens the full request/response.
 In text windows: F7 selects all, Ctrl+C copies. Logs: `~/.agora/logs/agora.log`.
 

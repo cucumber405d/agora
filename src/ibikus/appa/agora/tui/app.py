@@ -66,6 +66,7 @@ class AgoraApp(App[None]):
         Binding("escape", "cancel", "Cancel", priority=True),
         Binding("ctrl+enter", "run", "Run", show=False, priority=True),
         Binding("ctrl+l", "toggle_progress", "Info", show=False, priority=True),
+        Binding("ctrl+pageup", "go_parent", "Parent", show=False, priority=True),
     ]
 
     def __init__(
@@ -229,6 +230,10 @@ class AgoraApp(App[None]):
         self._cancel = asyncio.Event()
         self.last_prompt, self.last_context = prompt, ctx
         self._run(prompt, ctx, self._cancel)
+
+    def action_go_parent(self) -> None:
+        if not self._dialog_open():
+            self.query_one(FilesPanel).action_go_parent()
 
     def action_toggle_progress(self) -> None:
         panel = self.query_one(ProgressPanel)

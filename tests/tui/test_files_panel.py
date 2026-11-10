@@ -157,3 +157,80 @@ async def test_click_on_file_name_does_not_mark(tmp_path: Path) -> None:
         await _click_label(pilot, panel, "b.txt", 6)  # on the name, after "[ ] " + icon
         assert app.marked_paths == set()
         assert panel.cursor_node is not None and panel.cursor_node.data.path.name == "b.txt"
+
+
+def _up(panel: FilesPanel) -> Any:
+    children = list(panel.root.children)
+    return children[0] if children and str(children[0].label) == ".." else None
+
+
+async def test_dotdot_entry_is_first_and_enter_goes_up(tmp_path: Path) -> None:
+    root = make_project(tmp_path)
+    app = make_app(root)
+    async with app.run_test(size=(100, 30)) as pilot:
+        panel = await wait_tree(pilot)
+        up = _up(panel)
+        assert up is not None
+        panel.focus()
+        panel.move_cursor(up)
+        await pilot.press("enter")
+        await _settle(pilot, panel)
+        assert Path(panel.path).resolve() == tmp_path.resolve()
+
+
+async def test_click_on_dotdot_goes_up(tmp_path: Path) -> None:
+    root = make_project(tmp_path)
+    app = make_app(root)
+    async with app.run_test(size=(100, 30)) as pilot:
+        panel = await wait_tree(pilot)
+        up = _up(panel)
+        region = panel._get_label_region(up.line)
+        content = panel.content_region.offset - panel.region.offset
+        await pilot.click(panel, offset=(content.x + region.x + 1, content.y + up.line))
+        await _settle(pilot, panel)
+        assert Path(panel.path).resolve() == tmp_path.resolve()
+
+
+async def test_dotdot_cannot_be_marked(tmp_path: Path) -> None:
+    app = make_app(make_project(tmp_path))
+    async with app.run_test(size=(100, 30)) as pilot:
+        panel = await wait_tree(pilot)
+        panel.focus()
+        panel.move_cursor(_up(panel))
+        await pilot.press("space")
+        await pilot.pause()
+        assert app.marked_paths == set()
+        assert "[" not in str(panel.render_label(_up(panel), *_styles(panel)))
+
+
+async def test_ctrl_pageup_works_from_prompt(tmp_path: Path) -> None:
+    app = make_app(make_project(tmp_path))
+    async with app.run_test(size=(100, 30)) as pilot:
+        panel = await wait_tree(pilot)
+        app.query_one("#prompt").focus()
+        await pilot.press("ctrl+pageup")
+        await _settle(pilot, panel)
+        assert Path(panel.path).resolve() == tmp_path.resolve()
+
+
+async def test_backspace_in_prompt_still_edits(tmp_path: Path) -> None:
+    root = make_project(tmp_path)
+    app = make_app(root)
+    async with app.run_test(size=(100, 30)) as pilot:
+        panel = await wait_tree(pilot)
+        prompt = app.query_one("#prompt")
+        prompt.focus()
+        prompt.insert("ab")  # type: ignore[attr-defined]
+        await pilot.press("backspace")
+        await pilot.pause()
+        assert prompt.text == "a"  # type: ignore[attr-defined]
+        assert Path(panel.path).resolve() == root.resolve()
+
+
+async def test_no_dotdot_at_filesystem_root(tmp_path: Path) -> None:
+    app = make_app(make_project(tmp_path))
+    async with app.run_test(size=(100, 30)) as pilot:
+        panel = await wait_tree(pilot)
+        panel.path = Path(tmp_path.anchor)
+        await _settle(pilot, panel)
+        assert _up(panel) is None
