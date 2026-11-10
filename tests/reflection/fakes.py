@@ -87,7 +87,7 @@ def c(
         approved=approved,
         score=score,
         feedback=feedback,
-        issues=issues or [],
+        issues=issues if issues is not None else ([] if approved else ["Needs work."]),
         suggestions=suggestions or [],
     )
 

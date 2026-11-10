@@ -196,3 +196,24 @@ async def test_ctrl_l_toggles_progress_panel(tmp_path: Path) -> None:
         assert not panel.display
         await pilot.press("ctrl+l")
         assert panel.display
+
+
+async def test_feed_warns_about_truncated_draft() -> None:
+    from textual.app import App, ComposeResult
+
+    from ibikus.appa.agora.reflection.events import DraftDone, IterationStarted
+
+    class Harness(App[None]):
+        def compose(self) -> ComposeResult:
+            yield RunFeed(id="feed")
+
+    app = Harness()
+    async with app.run_test() as pilot:
+        feed = app.query_one(RunFeed)
+        feed.apply(IterationStarted(iteration=1, max_iterations=3))
+        await pilot.pause()
+        feed.apply(DraftDone(iteration=1, text="Cut off te", truncated=True))
+        await pilot.pause()
+        text = feed.plain_text()
+        assert "draft truncated" in text
+        assert "OLLAMA_CONTEXT_LENGTH" in text

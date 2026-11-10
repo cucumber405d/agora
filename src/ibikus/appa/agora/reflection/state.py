@@ -15,9 +15,16 @@ class ReflectionState(TypedDict):
     drafts: list[str]
     critiques: list[Critique]
     critic_error: str | None
+    truncated: list[bool]
 
 
 def initial_state(prompt: str, context: Context) -> ReflectionState:
     return ReflectionState(
-        prompt=prompt, context=context, iteration=0, drafts=[], critiques=[], critic_error=None
+        prompt=prompt,
+        context=context,
+        iteration=0,
+        drafts=[],
+        critiques=[],
+        critic_error=None,
+        truncated=[],
     )

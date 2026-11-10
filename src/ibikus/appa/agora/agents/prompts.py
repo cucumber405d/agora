@@ -61,5 +61,20 @@ def build_generator_input(
     return "\n\n".join(sections)
 
 
-def build_critic_input(prompt: str, ctx: Context, draft: str) -> str:
-    return "\n\n".join([*_head(prompt, ctx), f"## Draft\n{draft}"])
+def build_critic_input(
+    prompt: str,
+    ctx: Context,
+    draft: str,
+    threshold: int | None = None,
+    truncated: bool = False,
+) -> str:
+    sections = [*_head(prompt, ctx), f"## Draft\n{draft}"]
+    if truncated:
+        sections.append("Note: the draft was cut off by the length limit before it was finished.")
+    if threshold is not None:
+        sections.append(
+            "## Acceptance\n"
+            f"The draft is accepted only with approved=true and a score of at least {threshold}. "
+            "If you give a lower score, list in issues what prevents a higher score."
+        )
+    return "\n\n".join(sections)

@@ -108,13 +108,24 @@ def build_graph(
                     parts.append(delta)
                     write(DraftChunk(iteration=n, text=delta))
             draft = "".join(parts)
+            truncated = result.response.finish_reason == "length"
             span.update(output=draft)
-        write(DraftDone(iteration=n, text=draft))
-        return {"iteration": n, "drafts": [*state["drafts"], draft]}
+        write(DraftDone(iteration=n, text=draft, truncated=truncated))
+        return {
+            "iteration": n,
+            "drafts": [*state["drafts"], draft],
+            "truncated": [*state["truncated"], truncated],
+        }
 
     async def critique(state: ReflectionState) -> dict[str, Any]:
         write = get_stream_writer()
-        user_input = build_critic_input(state["prompt"], state["context"], state["drafts"][-1])
+        user_input = build_critic_input(
+            state["prompt"],
+            state["context"],
+            state["drafts"][-1],
+            threshold=cfg.approve_threshold,
+            truncated=bool(state["truncated"] and state["truncated"][-1]),
+        )
         with obs.iteration_span(state["iteration"], "critique") as span:
             try:
                 run = await agents.critic.run(user_input, model_settings=agents.critic_settings)

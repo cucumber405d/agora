@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_ai import Agent, AgentRetries, NativeOutput
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
@@ -13,6 +13,9 @@ from pydantic_ai.settings import ModelSettings
 _ECHOED_VALIDATION = re.compile(
     r"field '?\w+'? (is )?required|validation error|input should be", re.IGNORECASE
 )
+
+
+MIN_APPROVED_SCORE = 5
 
 
 class Critique(BaseModel):
@@ -27,6 +30,17 @@ class Critique(BaseModel):
     suggestions: list[str] = Field(
         default_factory=list, description="Concrete, actionable improvements."
     )
+
+    @model_validator(mode="after")
+    def _consistent_verdict(self) -> Critique:
+        if self.approved and self.score < MIN_APPROVED_SCORE:
+            raise ValueError(
+                f"approved=true with score {self.score} is inconsistent; "
+                f"approve only drafts scoring {MIN_APPROVED_SCORE} or more"
+            )
+        if not self.approved and not self.issues:
+            raise ValueError("issues must list what prevents approval when approved=false")
+        return self
 
     @field_validator("feedback")
     @classmethod

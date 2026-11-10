@@ -140,3 +140,11 @@ def test_generator_waiting_for_first_token() -> None:
     assert p.lines()[1].endswith("It1 Gen waiting…")
     p.apply(DraftChunk(iteration=1, text="x" * 8))
     assert p.lines()[1].endswith("It1 Gen ≈2 tk")
+
+
+def test_truncated_generation_is_warning() -> None:
+    clock = Clock()
+    p = _started(clock)
+    clock.t += 2
+    p.apply(DraftDone(iteration=1, text="x" * 40, truncated=True))
+    assert "⚠ It1 Gen" in p.lines()[1] and p.lines()[1].endswith("truncated")

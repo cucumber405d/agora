@@ -95,12 +95,15 @@ class RunProgress:
                 if stage is not None:
                     stage.chars += len(t)
                     stage.detail = f"≈{estimate_tokens('x' * stage.chars)} tk"
-            case DraftDone(iteration=n, text=t):
+            case DraftDone(iteration=n, text=t, truncated=cut):
                 stage = self._current()
                 took = now - stage.started if stage else 0.0
                 tokens = estimate_tokens(t)
                 rate = f" {tokens / took:.0f} tk/s" if took > 0 else ""
-                self._finish_current("done", f"{took:.1f}s{rate}")
+                if cut:
+                    self._finish_current("warn", f"{took:.1f}s{rate} truncated")
+                else:
+                    self._finish_current("done", f"{took:.1f}s{rate}")
                 self.completed_steps += 1
                 self._stages.append(_Stage(now, f"It{n} Crit"))
             case CritiqueDone(critique=c):

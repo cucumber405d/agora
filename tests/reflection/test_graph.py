@@ -116,7 +116,7 @@ def test_select_final_pure() -> None:
 
 
 def test_is_approved() -> None:
-    assert not is_approved(c(3, approved=True), 8)  # below the floor
+    assert not is_approved(c(6, approved=True), 8)  # below the floor
     assert not is_approved(c(8), 8)  # critic did not approve
     assert is_approved(c(8, approved=True), 8)
     assert not is_approved(c(7), 8)
@@ -134,3 +134,66 @@ async def test_max_allowed_iterations_fit_recursion_limit() -> None:
     conf = cfg(max_iterations=10)
     _, st = await collect(build_graph(make_agents(["A"], [c(1)]), conf), "Q")
     assert to_result(st, conf).iterations == 10
+
+
+def _truncating_generator():  # type: ignore[no-untyped-def]
+    """An Ollama model whose stream stops with finish_reason=length (context exhausted)."""
+    import json
+
+    import httpx
+    from openai import AsyncOpenAI
+    from pydantic_ai.models.ollama import OllamaModel
+    from pydantic_ai.providers.ollama import OllamaProvider
+
+    from ibikus.appa.agora.agents.generator import build_generator
+
+    def chunk(delta: dict[str, str], finish: str | None) -> str:
+        payload = {
+            "id": "x",
+            "object": "chat.completion.chunk",
+            "created": 0,
+            "model": "m",
+            "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
+        }
+        return f"data: {json.dumps(payload)}\n\n"
+
+    def sse(req: httpx.Request) -> httpx.Response:
+        body = (
+            chunk({"role": "assistant", "content": "Cut off te"}, None)
+            + chunk({}, "length")
+            + "data: [DONE]\n\n"
+        )
+        return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=body)
+
+    client = AsyncOpenAI(
+        base_url="http://x/v1",
+        api_key="k",
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(sse)),
+    )
+    return build_generator(OllamaModel("m", provider=OllamaProvider(openai_client=client)), {}, "g")
+
+
+async def test_truncated_draft_is_flagged_and_told_to_critic() -> None:
+    from dataclasses import replace
+
+    from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
+    from pydantic_ai.models.function import AgentInfo, FunctionModel
+
+    from ibikus.appa.agora.agents.critic import build_critic
+
+    critic_inputs: list[str] = []
+
+    def crit(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        critic_inputs.append(str(messages[-1]))
+        return ModelResponse(parts=[TextPart(c(9, approved=True).model_dump_json())])
+
+    agents = replace(
+        make_agents(["unused"], [c(9, approved=True)]),
+        generator=_truncating_generator(),
+        critic=build_critic(FunctionModel(crit), {}, "c"),
+    )
+    ev, _ = await collect(build_graph(agents, cfg()), "Q")
+    done = [e for e in ev if e.kind == "draft_done"]
+    assert done[0].truncated is True
+    assert done[0].text == "Cut off te"
+    assert "was cut off" in critic_inputs[0]

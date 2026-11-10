@@ -39,6 +39,7 @@ class DraftDone(BaseModel):
     kind: Literal["draft_done"] = "draft_done"
     iteration: int
     text: str
+    truncated: bool = False  # generation stopped at the token/context limit
 
 
 class CritiqueDone(BaseModel):

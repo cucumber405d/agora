@@ -82,10 +82,17 @@ class RunFeed(VerticalScroll):
                 it = self._iters[n]
                 it.text.append(t)
                 it.draft.update(Text("".join(it.text)))
-            case DraftDone(iteration=n, text=t):
+            case DraftDone(iteration=n, text=t, truncated=cut):
                 it = self._iters[n]
                 it.text = [t]
                 it.draft.update(Text(t))
+                if cut:
+                    warning = (
+                        "⚠ draft truncated: the token/context limit was reached. "
+                        "Raise OLLAMA_CONTEXT_LENGTH or mark fewer files."
+                    )
+                    self._plain.append(warning)
+                    self.mount(Static(Text(warning), classes="warning"), before=it.critique)
             case CritiqueDone(iteration=n, critique=c):
                 self._scores.append(c.score)
                 lines = [f"critique: score {c.score}/10" + (" (approved)" if c.approved else "")]

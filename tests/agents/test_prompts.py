@@ -77,3 +77,11 @@ def test_missing_override_file_is_config_error(tmp_path: Path) -> None:
 
     with pytest.raises(ConfigError, match=r"reflection\.prompts\.critic"):
         load_instructions("critic", tmp_path / "nope.md")
+
+
+def test_critic_input_states_threshold_and_truncation() -> None:
+    s = build_critic_input("Q", Context.empty(), "D", threshold=9, truncated=True)
+    assert "score of at least 9" in s
+    assert "was cut off" in s
+    plain = build_critic_input("Q", Context.empty(), "D", threshold=9)
+    assert "was cut off" not in plain

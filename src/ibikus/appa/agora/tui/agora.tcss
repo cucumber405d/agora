@@ -190,3 +190,8 @@ ModalScreen {
 #progress-log {
     color: #c0c0c0;
 }
+
+#feed .warning {
+    color: #ffff55;
+    padding-left: 2;
+}

@@ -149,3 +149,27 @@ def test_critic_instructions_are_strict_about_context() -> None:
     text = load_instructions("critic", None).lower()
     assert "feedback" in text
     assert "not supported by the context" in text
+
+
+def test_approved_with_low_score_is_inconsistent() -> None:
+    """qwen3:14b returned 'score 0/10 (approved)'."""
+    with pytest.raises(ValidationError, match="approved"):
+        Critique.model_validate({"approved": True, "score": 0, "feedback": "Not suitable."})
+
+
+def test_not_approved_needs_issues() -> None:
+    with pytest.raises(ValidationError, match="issues"):
+        Critique.model_validate({"approved": False, "score": 6, "feedback": "Meh."})
+
+
+def test_generator_instructions_forbid_meta_commentary() -> None:
+    from ibikus.appa.agora.agents.prompts import load_instructions
+
+    text = load_instructions("generator", None).lower()
+    assert "return only the answer" in text
+
+
+def test_critic_instructions_require_request_language() -> None:
+    from ibikus.appa.agora.agents.prompts import load_instructions
+
+    assert "same language as the request" in load_instructions("critic", None).lower()
