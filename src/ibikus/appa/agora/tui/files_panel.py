@@ -43,7 +43,7 @@ class FilesPanel(DirectoryTree):
     def _update_title(self) -> None:
         current = Path(self.path).resolve()
         shown = str(current)
-        if len(shown) > 26:  # keep the current folder name whole, shorten the rest
+        if len(shown) > 40:  # keep the current folder name whole, shorten the rest
             shown = f"…{os.sep}{current.name}"
         self.border_title = f"Files: {shown}"
 

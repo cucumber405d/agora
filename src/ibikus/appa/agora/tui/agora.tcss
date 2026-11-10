@@ -9,7 +9,7 @@ Screen {
 }
 
 #left {
-    width: 32;
+    width: 48;
 }
 
 #files {
@@ -30,7 +30,7 @@ Screen {
 }
 
 #prompt {
-    height: 8;
+    height: 12;
     background: #000080;
     color: #ffffff;
     border: double #00ffff;
@@ -160,7 +160,7 @@ ModalScreen {
 
 /* Progress panel (under the file panel, like Far's info panel) */
 #progress {
-    height: 14;
+    height: 1fr;
     background: #000080;
     border: double #00ffff;
     border-title-color: #ffffff;
