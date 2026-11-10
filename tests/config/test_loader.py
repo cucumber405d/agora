@@ -98,3 +98,7 @@ def test_provider_switch_requires_name(tmp_path: Path) -> None:
     p = _write(tmp_path / "a.yaml", "reflection:\n  critic: {provider: ollama, temperature: 0.1}\n")
     with pytest.raises(ConfigError, match=r"reflection\.critic\.name"):
         load_config(p, env={})
+
+
+def test_language_default_auto(tmp_path: Path) -> None:
+    assert load_config(env={}, cwd=tmp_path).reflection.language == "auto"

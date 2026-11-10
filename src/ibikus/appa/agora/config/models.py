@@ -63,6 +63,8 @@ def _default_critic() -> ModelConfig:
 
 class ReflectionConfig(_Strict):
     max_iterations: int = Field(3, ge=1, le=10)
+    # Language of answers and critiques: "auto" (detected from the prompt) or a name, e.g. "German".
+    language: str = "auto"
     approve_threshold: int = Field(8, ge=0, le=10)
     generator: ModelConfig = Field(default_factory=_default_generator)
     critic: ModelConfig = Field(default_factory=_default_critic)

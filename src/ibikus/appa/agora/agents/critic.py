@@ -5,9 +5,11 @@ from __future__ import annotations
 import re
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-from pydantic_ai import Agent, AgentRetries, NativeOutput
+from pydantic_ai import Agent, AgentRetries, ModelRetry, NativeOutput, RunContext
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
+
+from .language import cyrillic_share
 
 # Small models sometimes echo the retry prompt ("Field 'score' is required") into the verdict.
 _ECHOED_VALIDATION = re.compile(
@@ -74,12 +76,27 @@ def critic_output(model: Model) -> type[Critique] | NativeOutput[Critique]:
     return Critique
 
 
-def build_critic(model: Model, settings: ModelSettings, instructions: str) -> Agent[None, Critique]:
-    return Agent(
+CriticDeps = str | None  # expected language of the verdict, e.g. "Russian"
+
+
+def build_critic(
+    model: Model, settings: ModelSettings, instructions: str
+) -> Agent[CriticDeps, Critique]:
+    agent: Agent[CriticDeps, Critique] = Agent(
         model,
         output_type=critic_output(model),
         instructions=instructions,
         model_settings=settings,
         retries=AgentRetries(output=2),
+        deps_type=CriticDeps,
         name="critic",
     )
+
+    @agent.output_validator
+    def _expected_language(ctx: RunContext[CriticDeps], verdict: Critique) -> Critique:
+        # Only Cyrillic can be checked reliably by script; ask once, then keep the verdict.
+        if ctx.deps == "Russian" and ctx.retry == 0 and cyrillic_share(verdict.feedback) < 0.5:
+            raise ModelRetry("Write feedback, issues and suggestions in Russian.")
+        return verdict
+
+    return agent

@@ -197,3 +197,17 @@ async def test_truncated_draft_is_flagged_and_told_to_critic() -> None:
     assert done[0].truncated is True
     assert done[0].text == "Cut off te"
     assert "was cut off" in critic_inputs[0]
+
+
+async def test_graph_tells_both_agents_the_prompt_language() -> None:
+    rec = Recorder()
+    agents = make_agents(["A"], [c(9, approved=True)], recorder=rec)
+    await collect(build_graph(agents, cfg()), "расскажи сказку")
+    assert "Answer in Russian." in rec.generator_inputs[0]
+
+
+async def test_configured_language_overrides_detection() -> None:
+    rec = Recorder()
+    agents = make_agents(["A"], [c(9, approved=True)], recorder=rec)
+    await collect(build_graph(agents, cfg(language="German")), "расскажи сказку")
+    assert "Answer in German." in rec.generator_inputs[0]

@@ -47,6 +47,7 @@ def build_generator_input(
     ctx: Context,
     previous_draft: str | None = None,
     critique: Critique | None = None,
+    language: str | None = None,
 ) -> str:
     sections = _head(prompt, ctx)
     if previous_draft is not None:
@@ -58,6 +59,8 @@ def build_generator_input(
                 f"\n\nSuggestions:\n{_bullets(critique.suggestions)}"
             )
         sections.append(REVISE_INSTRUCTION)
+    if language:
+        sections.append(f"Answer in {language}.")
     return "\n\n".join(sections)
 
 
@@ -67,6 +70,7 @@ def build_critic_input(
     draft: str,
     threshold: int | None = None,
     truncated: bool = False,
+    language: str | None = None,
 ) -> str:
     sections = [*_head(prompt, ctx), f"## Draft\n{draft}"]
     if truncated:
@@ -77,4 +81,6 @@ def build_critic_input(
             f"The draft is accepted only with approved=true and a score of at least {threshold}. "
             "If you give a lower score, list in issues what prevents a higher score."
         )
+    if language:
+        sections.append(f"Write feedback, issues and suggestions in {language}.")
     return "\n\n".join(sections)

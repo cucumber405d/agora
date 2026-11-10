@@ -11,7 +11,8 @@ from pydantic_ai import Agent
 from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.settings import ModelSettings
 
-from ibikus.appa.agora.agents.critic import Critique
+from ibikus.appa.agora.agents.critic import CriticDeps, Critique
+from ibikus.appa.agora.agents.language import detect_language
 from ibikus.appa.agora.agents.prompts import build_critic_input, build_generator_input
 from ibikus.appa.agora.config import ReflectionConfig
 from ibikus.appa.agora.observability.langfuse import NoopObservability, Observability
@@ -31,7 +32,7 @@ from .state import ReflectionState
 @dataclass(frozen=True)
 class Agents:
     generator: Agent[None, str]
-    critic: Agent[None, Critique]
+    critic: Agent[CriticDeps, Critique]
     generator_settings: ModelSettings
     critic_settings: ModelSettings
 
@@ -92,13 +93,18 @@ def build_graph(
     """Compile the reflection graph. Nodes emit RunEvents via the custom stream mode."""
     obs: Observability = observability or NoopObservability()
 
+    def _language(state: ReflectionState) -> str | None:
+        return detect_language(state["prompt"]) if cfg.language == "auto" else cfg.language
+
     async def generate(state: ReflectionState) -> dict[str, Any]:
         write = get_stream_writer()
         n = state["iteration"] + 1
         write(IterationStarted(iteration=n, max_iterations=cfg.max_iterations))
         previous = state["drafts"][-1] if state["drafts"] else None
         critique = state["critiques"][-1] if state["critiques"] else None
-        user_input = build_generator_input(state["prompt"], state["context"], previous, critique)
+        user_input = build_generator_input(
+            state["prompt"], state["context"], previous, critique, language=_language(state)
+        )
         parts: list[str] = []
         with obs.iteration_span(n, "generate") as span:
             async with agents.generator.run_stream(
@@ -125,10 +131,13 @@ def build_graph(
             state["drafts"][-1],
             threshold=cfg.approve_threshold,
             truncated=bool(state["truncated"] and state["truncated"][-1]),
+            language=_language(state),
         )
         with obs.iteration_span(state["iteration"], "critique") as span:
             try:
-                run = await agents.critic.run(user_input, model_settings=agents.critic_settings)
+                run = await agents.critic.run(
+                    user_input, model_settings=agents.critic_settings, deps=_language(state)
+                )
             except UnexpectedModelBehavior as e:
                 message = f"{e}{f' ({e.__cause__})' if e.__cause__ else ''}"
                 span.update(metadata={"critic_error": message})
