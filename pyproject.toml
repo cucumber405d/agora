@@ -1,6 +1,6 @@
 [project]
 name = "agora"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Agora - reflection agent with a Far-style console UI (part of the Appa platform)"
 readme = "docs/start.md"
 requires-python = ">=3.12"
@@ -33,11 +33,15 @@ dev = [
     "types-psutil>=7.2.2.20261111",
     "python-docx>=1.2.0",
     "pillow>=13.0.0",
+    "pyinstaller>=6.22.3",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/ibikus/appa/agora/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ibikus"]

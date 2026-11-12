@@ -34,3 +34,7 @@ Logs: `~/.agora/logs/agora.log` (override with `AGORA_HOME`, level with `AGORA_L
 ## `agora doctor`
 
 `agora doctor` prints the diagnostics the setup wizard uses (OS, RAM, disk, GPU, Ollama, config file) and which configurations fit this machine. Exit code: 0 — all fine, 1 — warnings, 2 — errors. `agora doctor --no-network` skips the Ollama server check. Attach its output when reporting a problem.
+
+## What was extracted from a document?
+
+`agora convert FILE` prints the Markdown Agora sends for a PDF/DOCX/PPTX/XLSX/HTML file (the same text as Enter on the file in the files panel). An empty result means the document has no text layer (e.g. a scan); OCR is not supported.

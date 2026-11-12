@@ -232,7 +232,7 @@ class SetupWizard(ModalScreen[Path | None]):
         )
         self._buttons()
         self._describe_choice()
-        ol.focus()
+        self.call_after_refresh(ol.focus)  # after the button focus set by _buttons()
 
     def _describe_choice(self) -> None:
         assert self.report is not None and self.choice is not None

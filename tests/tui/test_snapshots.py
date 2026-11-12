@@ -129,5 +129,6 @@ def test_wizard_presets(snap_compare: Any, tmp_path: Path) -> None:
     async def presets(pilot: Pilot[Any]) -> None:
         await settle(pilot)
         await press(pilot, "next")
+        await pilot.pause(0.1)
 
     assert snap_compare(_wizard_app(tmp_path), terminal_size=(110, 36), run_before=presets)

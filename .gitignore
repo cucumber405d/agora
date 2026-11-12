@@ -8,3 +8,5 @@ agora-runs/
 dist/
 .superpowers/
 snapshot_report.html
+build/
+Claude outputs/

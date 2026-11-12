@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 from ibikus.appa.agora import __version__
 from ibikus.appa.agora.config import AppConfig, ConfigError, find_config_path, load_config
+from ibikus.appa.agora.context.documents import ConversionError, DocumentConverter
 from ibikus.appa.agora.llm.health import check_config
 from ibikus.appa.agora.logging_setup import setup_logging
 from ibikus.appa.agora.observability.langfuse import setup_observability
@@ -36,7 +37,20 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     doctor = sub.add_parser("doctor", help="print system and Ollama diagnostics")
     doctor.add_argument("--no-network", action="store_true", help="skip Ollama and internet checks")
     sub.add_parser("setup", help="open the setup wizard")
+    convert = sub.add_parser("convert", help="print the Markdown extracted from a document")
+    convert.add_argument("file", type=Path)
     return parser.parse_args(argv)
+
+
+def _convert(path: Path) -> int:
+    try:
+        text = DocumentConverter().to_markdown(path)
+    except (ConversionError, OSError) as e:
+        print(f"Cannot convert {path}: {e}", file=sys.stderr)
+        return 1
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+    print(text)
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -49,6 +63,8 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigError as e:
         print(f"Invalid configuration:\n{e}", file=sys.stderr)
         return 2
+    if args.command == "convert":
+        return _convert(args.file)
     if args.command == "doctor":
         return asyncio.run(doctor(network=not args.no_network, config_path=config_path))
     first_run = config_path is None
