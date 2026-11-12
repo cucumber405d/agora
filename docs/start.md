@@ -54,7 +54,7 @@ reflection:
 context:
   max_file_kb: 256
   max_total_tokens: 4500           # 8k window; use 12000 for a 16k window
-  allowed_ext: [.md, .txt, .py, .java, .yaml, .json]
+  allowed_ext: [.md, .txt, .py, .java, .yaml, .json]   # text files; documents are always allowed
 observability:
   langfuse: {enabled: auto}
 ```

@@ -60,3 +60,16 @@ def test_default_choice_falls_back_to_light() -> None:
 def test_disk_shortfall() -> None:
     assert disk_shortfall_gb(by_id("quality"), report(32, None, free=10)) == pytest.approx(7.0)
     assert disk_shortfall_gb(by_id("light"), report(32, None, free=10)) == 0
+
+
+def test_real_nvidia_numbers_get_the_expected_preset() -> None:
+    from ibikus.appa.agora.setup.diagnostics import parse_nvidia_smi
+
+    rtx4070 = parse_nvidia_smi("NVIDIA GeForce RTX 4070, 12282")
+    rtx4060 = parse_nvidia_smi("NVIDIA GeForce RTX 4060, 8188")
+    assert recommend(load_presets(), report(32, rtx4070)).id == "quality"  # type: ignore[union-attr]
+    assert recommend(load_presets(), report(16, rtx4060)).id == "standard"  # type: ignore[union-attr]
+
+
+def test_8gb_laptop_reporting_7_8_gets_light() -> None:
+    assert recommend(load_presets(), report(7.8, None)).id == "light"  # type: ignore[union-attr]

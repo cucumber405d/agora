@@ -73,10 +73,10 @@ class FileContextSource:
         ext = path.suffix.lower()
         if ext in LEGACY_EXT:
             return None, "legacy_format"
+        if ext in DOCUMENT_FORMATS:  # always allowed: older configs list only text types
+            return self._read_document(path)
         if ext not in self._allowed:
             return None, "extension"
-        if ext in DOCUMENT_FORMATS:
-            return self._read_document(path)
         return self._read_text(path)
 
     def load(self, paths: Sequence[Path], on_progress: ProgressCallback | None = None) -> Context:

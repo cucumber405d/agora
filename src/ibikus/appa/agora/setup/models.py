@@ -49,7 +49,12 @@ async def pull(model: str, client: httpx.AsyncClient, base_url: str) -> AsyncIte
             async for line in response.aiter_lines():
                 if not line.strip():
                     continue
-                item = json.loads(line)
+                try:
+                    item = json.loads(line)
+                except ValueError as e:
+                    raise PullError(f"unexpected answer from Ollama: {line[:200]}") from e
+                if not isinstance(item, dict):
+                    raise PullError(f"unexpected answer from Ollama: {line[:200]}")
                 if "error" in item:
                     raise PullError(str(item["error"]))
                 status = str(item.get("status", ""))

@@ -299,3 +299,83 @@ async def test_help_shows_version(tmp_path: Path) -> None:
         assert isinstance(pilot.app.screen, HelpScreen)
         assert f"Agora {__version__}" in pilot.app.screen.about_text
         assert "github.com/cucumber405d/agora" in pilot.app.screen.about_text
+
+
+async def test_install_then_apply_settings_finds_new_exe(tmp_path: Path) -> None:
+    """Fresh machine: the exe does not exist when the wizard opens."""
+    world = World(running=False, installed=False)
+    deps = world.deps(tmp_path)
+    local = tmp_path / "localappdata"
+    deps.ollama_exe = None
+    deps.environ = {"LOCALAPPDATA": str(local)}
+    original_popen = world.popen
+
+    def popen(args: list[str]) -> None:
+        original_popen(args)
+        if args[0].endswith("OllamaSetup.exe"):
+            exe = local / "Programs" / "Ollama" / "ollama.exe"
+            exe.parent.mkdir(parents=True)
+            exe.write_bytes(b"")
+
+    deps.popen = popen
+    app = AgoraApp(
+        AppConfig(),
+        root=make_project(tmp_path),
+        service_factory=factory(),
+        start_wizard=True,
+        setup_deps=deps,
+    )
+    async with app.run_test(size=(110, 36)) as pilot:
+        await settle(pilot)
+        await press(pilot, "next")
+        await press(pilot, "next")
+        await press(pilot, "action")  # install
+        await press(pilot, "next")
+        await press(pilot, "action")  # apply recommended -> restart
+        assert wizard(pilot).status_text == "Settings applied."
+        assert world.started[-1] == [str(local / "Programs" / "Ollama" / "ollama.exe"), "serve"]
+
+
+async def test_server_timeout_offers_check_again_not_reinstall(tmp_path: Path) -> None:
+    world = World(running=False, installed=False, server_after_install=False)
+    async with _app(tmp_path, world).run_test(size=(110, 36)) as pilot:
+        await settle(pilot)
+        await press(pilot, "next")
+        await press(pilot, "next")
+        await press(pilot, "action")
+        assert len(world.started) == 1
+        assert str(pilot.app.screen.query_one("#action", Button).label) == "Check again"
+        world.installed = world.running = True  # the user finished the installer late
+        await press(pilot, "action")
+        assert len(world.started) == 1  # no second installer
+        assert "running" in wizard(pilot).body_text
+
+
+async def test_unexpected_worker_error_keeps_app_running(tmp_path: Path) -> None:
+    world = World()
+
+    async def broken() -> SystemReport:
+        raise RuntimeError("boom")
+
+    deps = world.deps(tmp_path)
+    deps.collect = broken
+    app = AgoraApp(
+        AppConfig(),
+        root=make_project(tmp_path),
+        service_factory=factory(),
+        start_wizard=True,
+        setup_deps=deps,
+    )
+    async with app.run_test(size=(110, 36)) as pilot:
+        await settle(pilot)
+        assert isinstance(app.screen, SetupWizard)
+        assert "boom" in wizard(pilot).status_text
+
+
+async def test_below_all_requirements_message(tmp_path: Path) -> None:
+    world = World(ram=4, gpu=None)
+    async with _app(tmp_path, world).run_test(size=(110, 36)) as pilot:
+        await settle(pilot)
+        await press(pilot, "next")
+        assert "GPU memory could not be determined" not in wizard(pilot).body_text
+        assert "below the requirements" in wizard(pilot).body_text

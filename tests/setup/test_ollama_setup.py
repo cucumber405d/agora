@@ -157,3 +157,29 @@ def test_set_user_env_not_windows() -> None:
 
     with pytest.raises(NotImplementedError):
         set_user_env({"A": "1"})
+
+
+def test_restart_without_exe_kills_nothing() -> None:
+    calls: list[Any] = []
+    with pytest.raises(FileNotFoundError):
+        o.restart_ollama(lambda a, t: calls.append(a) or CommandResult(0, "", ""), exe=None)
+    assert calls == []
+
+
+def test_spawn_detached_hides_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+
+    seen: dict[str, Any] = {}
+
+    def fake_popen(args: list[str], **kwargs: Any) -> None:
+        seen.update(kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    o.spawn_detached(["ollama", "serve"])
+    assert seen["stdin"] is subprocess.DEVNULL
+    assert seen["stdout"] is subprocess.DEVNULL
+    assert seen["stderr"] is subprocess.DEVNULL
+    if sys.platform == "win32":
+        assert seen["creationflags"]
+    else:
+        assert seen["start_new_session"] is True

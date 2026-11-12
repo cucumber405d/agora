@@ -11,6 +11,10 @@ from pydantic import BaseModel, ConfigDict
 from .diagnostics import SystemReport
 
 DISK_RESERVE_GB = 2
+# Reported sizes are slightly below the marketing size (an "8 GB" laptop shows 7.8 GB RAM,
+# an RTX 4070 reports 12282 MiB = 11.99 GB), so requirements allow for that.
+RAM_TOLERANCE_GB = 0.5
+VRAM_TOLERANCE_GB = 0.25
 
 
 class Preset(BaseModel):
@@ -40,13 +44,13 @@ def load_presets() -> list[Preset]:
 def unmet(preset: Preset, report: SystemReport) -> list[str]:
     """Human-readable requirements of `preset` this machine does not meet."""
     reasons = []
-    if preset.min_ram_gb is not None and report.ram_gb < preset.min_ram_gb:
+    if preset.min_ram_gb is not None and report.ram_gb + RAM_TOLERANCE_GB < preset.min_ram_gb:
         reasons.append(f"needs {preset.min_ram_gb:g} GB RAM (found {report.ram_gb:.1f})")
     if preset.min_vram_gb is not None:
         vram = report.gpu.vram_gb if report.gpu else None
         if report.gpu is not None and vram is None:
             reasons.append("GPU memory unknown")
-        elif (vram or 0) < preset.min_vram_gb:
+        elif (vram or 0) + VRAM_TOLERANCE_GB < preset.min_vram_gb:
             reasons.append(f"needs {preset.min_vram_gb:g} GB VRAM (found {vram or 0:.1f})")
     return reasons
 

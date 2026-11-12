@@ -35,11 +35,14 @@ def _model(name: str, temperature: float) -> dict[str, Any]:
 def build_config_data(preset: Preset, existing: dict[str, Any] | None = None) -> dict[str, Any]:
     """The existing config with the preset's models, language and context budget applied."""
     data = copy.deepcopy(existing) if existing else {}
-    reflection = data.setdefault("reflection", {})
+    for section in ("reflection", "context"):
+        if not isinstance(data.get(section), dict):
+            data[section] = {}
+    reflection = data["reflection"]
     reflection["generator"] = _model(preset.generator, GENERATOR_TEMPERATURE)
     reflection["critic"] = _model(preset.critic, CRITIC_TEMPERATURE)
     reflection["language"] = "auto"
-    data.setdefault("context", {})["max_total_tokens"] = preset.max_total_tokens
+    data["context"]["max_total_tokens"] = preset.max_total_tokens
     return data
 
 

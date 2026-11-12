@@ -137,3 +137,9 @@ def test_default_allowed_ext_includes_documents() -> None:
     allowed = ContextConfig().allowed_ext
     for ext in (".pdf", ".docx", ".pptx", ".xlsx", ".html", ".htm"):
         assert ext in allowed
+
+
+def test_documents_allowed_even_with_custom_allowed_ext() -> None:
+    # Configs written before document support list only text extensions.
+    ctx = _doc_src(allowed_ext=[".md"]).load([DOCS / "sample.pdf"])
+    assert [f.source_format for f in ctx.files] == ["PDF"]

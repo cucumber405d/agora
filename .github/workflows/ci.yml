@@ -17,3 +17,20 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy src
       - run: uv run pytest
+
+  windows:
+    # The release builds on Windows: catch Windows-only failures before a tag is pushed.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run mypy src
+      - run: uv run pytest
+      - run: uv run pyinstaller packaging/agora.spec --noconfirm
+      - name: Smoke test exe
+        shell: pwsh
+        run: uv run python scripts/smoke.py dist/agora/agora.exe (uv run python -c "import ibikus.appa.agora as a; print(a.__version__)")

@@ -122,3 +122,11 @@ async def test_verify_generate_fails() -> None:
         checks = await m.verify(_preset("quality"), client, URL, _ps(PS_HEADER), Path("ollama"))
     assert checks[0].status == "error"
     assert "not found" in checks[0].detail
+
+
+async def test_pull_non_json_body_is_pull_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, content=b"404 page not found")
+
+    with pytest.raises(m.PullError):
+        await _collect(httpx.AsyncClient(transport=httpx.MockTransport(handler)))

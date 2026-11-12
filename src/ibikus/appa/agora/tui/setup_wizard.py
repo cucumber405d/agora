@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import platform as _platform
@@ -38,6 +39,7 @@ from ibikus.appa.agora.setup.ollama_setup import (
     launch_installer,
     recommended_env,
     restart_ollama,
+    spawn_detached,
     wait_for_server,
 )
 from ibikus.appa.agora.setup.presets import (
@@ -66,12 +68,6 @@ def _set_env_default() -> Callable[[Mapping[str, str]], None] | None:
     return set_user_env
 
 
-def _popen_default(args: list[str]) -> object:
-    import subprocess
-
-    return subprocess.Popen(args)
-
-
 @dataclass
 class SetupDeps:
     """Everything the wizard touches outside the process; tests pass fakes."""
@@ -96,7 +92,7 @@ def default_deps() -> SetupDeps:
         collect=collect,
         client_factory=httpx.AsyncClient,
         runner=run_command,
-        popen=_popen_default,
+        popen=spawn_detached,
         set_env=_set_env_default(),
         environ=os.environ,
         config_path=user_config_path(),
@@ -229,6 +225,9 @@ class SetupWizard(ModalScreen[Path | None]):
             "well; others are allowed but may be slow."
             if best is not None
             else "GPU memory could not be determined: choose a configuration yourself."
+            if self.report.gpu is not None and self.report.gpu.vram_gb is None
+            else "This computer is below the requirements of all configurations; Light may "
+            "still work, but slowly."
         )
         self._buttons()
         self._describe_choice()
@@ -347,11 +346,28 @@ class SetupWizard(ModalScreen[Path | None]):
 
     # -- work ---------------------------------------------------------------------------------
 
+    def _exe(self) -> Path | None:
+        """Looked up on every use: Ollama may have been installed after the wizard opened."""
+        return self.deps.ollama_exe or find_ollama_exe(self.deps.environ)
+
+    async def _guarded(self, body: Callable[[], Awaitable[None]], retry: Callable[[], Any]) -> None:
+        """Any unexpected error ends in the red status line, never in a crashed app."""
+        try:
+            await body()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.exception("Setup step crashed")
+            self._failed(f"Unexpected error: {type(e).__name__}: {e}", retry)
+
     async def _refresh(self) -> None:
         self.report = await self.deps.collect()
 
     @work(exclusive=True, group="setup")
     async def _diagnose(self) -> None:
+        await self._guarded(self._do_diagnose, self._diagnose)
+
+    async def _do_diagnose(self) -> None:
         self._busy(True)
         try:
             await self._refresh()
@@ -369,6 +385,9 @@ class SetupWizard(ModalScreen[Path | None]):
 
     @work(exclusive=True, group="setup")
     async def _install(self) -> None:
+        await self._guarded(self._do_install, self._install)
+
+    async def _do_install(self) -> None:
         self._busy(True)
         bar = self.query_one("#wizard-bar", ProgressBar)
         installer = self.deps.downloads / "OllamaSetup.exe"
@@ -380,7 +399,7 @@ class SetupWizard(ModalScreen[Path | None]):
                 launch_installer(installer, self.deps.popen)
                 self._status("Finish the Ollama installer; waiting for the Ollama server…")
                 if not await self.deps.wait_server(client, self.deps.base_url):
-                    self._failed("Ollama was not found after the installer.", self._install)
+                    self._waiting_for_installer()
                     return
         except (httpx.HTTPError, OSError) as e:
             self._failed(f"Cannot download the installer: {e}", self._install)
@@ -394,11 +413,40 @@ class SetupWizard(ModalScreen[Path | None]):
         self._busy(False)
         self._show()
 
+    def _waiting_for_installer(self) -> None:
+        """The installer may still be open: offer to check again instead of reinstalling."""
+        self._busy(False)
+        self._show()
+        self._buttons("Check again", self._check_again, skip=True)
+        self._status(
+            "Ollama is not running yet. Finish the installer (its window may be behind this "
+            "one), then press Check again.",
+            error=True,
+        )
+
+    @work(exclusive=True, group="setup")
+    async def _check_again(self) -> None:
+        await self._guarded(self._do_check_again, self._check_again)
+
+    async def _do_check_again(self) -> None:
+        self._busy(True)
+        async with self.deps.client_factory() as client:
+            ok = await self.deps.wait_server(client, self.deps.base_url)
+        if not ok:
+            self._waiting_for_installer()
+            return
+        await self._refresh()
+        self._busy(False)
+        self._show()
+
     @work(exclusive=True, group="setup")
     async def _start_ollama(self) -> None:
+        await self._guarded(self._do_start_ollama, self._start_ollama)
+
+    async def _do_start_ollama(self) -> None:
         self._busy(True)
         try:
-            restart_ollama(self.deps.runner, self.deps.popen, self.deps.ollama_exe)
+            restart_ollama(self.deps.runner, self.deps.popen, self._exe())
             async with self.deps.client_factory() as client:
                 ok = await self.deps.wait_server(client, self.deps.base_url)
         except OSError as e:
@@ -413,6 +461,9 @@ class SetupWizard(ModalScreen[Path | None]):
 
     @work(exclusive=True, group="setup")
     async def _apply_settings(self) -> None:
+        await self._guarded(self._do_apply_settings, self._apply_settings)
+
+    async def _do_apply_settings(self) -> None:
         assert self.choice is not None and self.report is not None and self.deps.set_env
         values = recommended_env(self.choice)
         self._busy(True)
@@ -422,7 +473,7 @@ class SetupWizard(ModalScreen[Path | None]):
             self.deps.environ.update(values)
             if self.report.ollama.running:
                 self._status("Restarting Ollama…")
-                restart_ollama(self.deps.runner, self.deps.popen, self.deps.ollama_exe)
+                restart_ollama(self.deps.runner, self.deps.popen, self._exe())
                 async with self.deps.client_factory() as client:
                     await self.deps.wait_server(client, self.deps.base_url)
         except OSError as e:
@@ -435,6 +486,9 @@ class SetupWizard(ModalScreen[Path | None]):
 
     @work(exclusive=True, group="setup")
     async def _pull(self) -> None:
+        await self._guarded(self._do_pull, self._pull)
+
+    async def _do_pull(self) -> None:
         assert self.choice is not None and self.report is not None
         self._busy(True)
         bar = self.query_one("#wizard-bar", ProgressBar)
@@ -455,6 +509,9 @@ class SetupWizard(ModalScreen[Path | None]):
 
     @work(exclusive=True, group="setup")
     async def _finish(self) -> None:
+        await self._guarded(self._do_finish, self._finish)
+
+    async def _do_finish(self) -> None:
         assert self.choice is not None
         path = self.deps.config_path
         try:
@@ -477,7 +534,7 @@ class SetupWizard(ModalScreen[Path | None]):
             self.choice, self.report.ollama.models
         ):
             self._body(text.append("Checking the generator model…"))
-            exe = self.deps.ollama_exe or Path("ollama")
+            exe = self._exe() or Path("ollama")
             async with self.deps.client_factory() as client:
                 checks = await verify(
                     self.choice, client, self.deps.base_url, self.deps.runner, exe

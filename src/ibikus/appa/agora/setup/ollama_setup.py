@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import subprocess
+import sys
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
@@ -25,8 +26,19 @@ SERVER_TIMEOUT_S = 120
 Popen = Callable[[list[str]], Any]
 
 
-def _popen(args: list[str]) -> Any:
-    return subprocess.Popen(args)  # detached enough: we never wait for it
+def spawn_detached(args: list[str]) -> Any:
+    """Start a background program that must not write into the TUI's terminal or die with
+    it (e.g. `ollama serve`)."""
+    kwargs: dict[str, Any] = {
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+    }
+    if sys.platform == "win32":
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
+    else:
+        kwargs["start_new_session"] = True
+    return subprocess.Popen(args, **kwargs)
 
 
 @dataclass(frozen=True)
@@ -58,7 +70,7 @@ async def download_installer(
         part.unlink(missing_ok=True)
 
 
-def launch_installer(path: Path, popen: Popen = _popen) -> None:
+def launch_installer(path: Path, popen: Popen = spawn_detached) -> None:
     """Start the installer; the user goes through it themselves."""
     popen([str(path)])
 
@@ -93,14 +105,14 @@ def recommended_env(preset: Preset) -> dict[str, str]:
     }
 
 
-def restart_ollama(runner: Runner, popen: Popen = _popen, exe: Path | None = None) -> None:
+def restart_ollama(runner: Runner, popen: Popen = spawn_detached, exe: Path | None = None) -> None:
     """Stop the user's Ollama (tray app and server) and start it again so new environment
     variables take effect. Also used to start an installed but stopped Ollama."""
+    if exe is None:  # checked first: never stop Ollama without a way to start it again
+        raise FileNotFoundError("Ollama executable not found")
     for image in ("ollama app.exe", "ollama.exe"):
         res = runner(["taskkill", "/IM", image, "/F"], 10)
         logger.info("taskkill %s -> %s", image, res.returncode)
-    if exe is None:
-        raise FileNotFoundError("Ollama executable not found")
     tray = exe.with_name("ollama app.exe")
     popen([str(tray)] if tray.is_file() else [str(exe), "serve"])
 

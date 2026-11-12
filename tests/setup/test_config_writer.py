@@ -78,3 +78,9 @@ def test_read_existing(tmp_path: Path) -> None:
     assert w.read_existing(tmp_path / "c.yaml") == {"reflection": {"max_iterations": 4}}
     (tmp_path / "bad.yaml").write_text(": : :\n- [", encoding="utf-8")
     assert w.read_existing(tmp_path / "bad.yaml") is None
+
+
+def test_build_tolerates_null_sections() -> None:
+    data = w.build_config_data(_quality(), {"reflection": None, "context": None})
+    assert data["reflection"]["critic"]["name"] == "qwen3:14b"
+    assert data["context"] == {"max_total_tokens": 4500}

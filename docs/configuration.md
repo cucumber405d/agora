@@ -27,7 +27,7 @@ Relative `reflection.prompts.*` paths are resolved against the current working d
 | `context.max_document_mb` | `20` | larger documents (PDF, DOCX, PPTX, XLSX, HTML) are skipped before conversion |
 | `context.convert_timeout_s` | `60` | per-document conversion timeout |
 | `context.max_total_tokens` | `32000` | cumulative budget, estimated as chars / 4 |
-| `context.allowed_ext` | `.md .txt .py .java .yaml .json .pdf .docx .pptx .xlsx .html .htm` | case-insensitive; documents are converted to Markdown via markitdown, `.doc/.xls/.ppt` are reported as `legacy_format` |
+| `context.allowed_ext` | `.md .txt .py .java .yaml .json .pdf .docx .pptx .xlsx .html .htm` | case-insensitive, governs text files; documents (`.pdf .docx .pptx .xlsx .html .htm`) are always allowed and converted to Markdown via markitdown, `.doc/.xls/.ppt` are reported as `legacy_format` |
 | `observability.langfuse.enabled` | `auto` | `auto` = on when keys are set; `on`; `off` |
 
 ### Model fields
