@@ -18,9 +18,19 @@ class ContextFile(BaseModel):
     path: Path
     content: str
     tokens: int
+    source_format: str | None = None  # "PDF", "DOCX", ... when converted from a document
 
 
-SkipReason = Literal["extension", "too_large", "not_utf8", "over_budget", "unreadable"]
+SkipReason = Literal[
+    "extension",
+    "too_large",
+    "not_utf8",
+    "over_budget",
+    "unreadable",
+    "legacy_format",
+    "no_text",
+    "convert_failed",
+]
 
 
 class SkippedFile(BaseModel):

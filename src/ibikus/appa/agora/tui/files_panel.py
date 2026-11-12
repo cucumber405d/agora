@@ -29,6 +29,13 @@ class FilesPanel(DirectoryTree):
         Binding("backspace", "go_parent", "Parent", show=False),
     ]
 
+    class FileOpened(Message):
+        """Enter on a file: the app shows what would be sent for it."""
+
+        def __init__(self, path: Path) -> None:
+            super().__init__()
+            self.path = path
+
     class MarkedChanged(Message):
         def __init__(self, marked: frozenset[Path]) -> None:
             super().__init__()
@@ -82,6 +89,10 @@ class FilesPanel(DirectoryTree):
                 self._up_node = node.add(
                     "..", data=DirEntry(current.parent), before=0, allow_expand=False
                 )
+
+    def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
+        event.stop()
+        self.post_message(self.FileOpened(event.path))
 
     def on_directory_tree_directory_selected(self, event: DirectoryTree.DirectorySelected) -> None:
         if event.node is self._up_node:

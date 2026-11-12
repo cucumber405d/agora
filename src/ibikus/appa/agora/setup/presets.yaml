@@ -1,0 +1,25 @@
+# Hardware-based configurations offered by the setup wizard, weakest first.
+- id: light
+  title: Light
+  generator: "qwen3:4b"
+  critic: "qwen3:4b"
+  download_gb: 2.5
+  min_ram_gb: 8
+  ollama_context: 4096
+  max_total_tokens: 2500
+- id: standard
+  title: Standard
+  generator: "qwen3.5:9b"
+  critic: "qwen3:8b"
+  download_gb: 11
+  min_vram_gb: 8
+  ollama_context: 8192
+  max_total_tokens: 4500
+- id: quality
+  title: Quality
+  generator: "qwen3.5:9b"
+  critic: "qwen3:14b"
+  download_gb: 15
+  min_vram_gb: 12
+  ollama_context: 8192
+  max_total_tokens: 4500

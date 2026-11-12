@@ -1,0 +1,3 @@
+NAME         ID              SIZE     PROCESSOR    CONTEXT    UNTIL
+qwen3:14b    bdbd181c33f2    10 GB    100% GPU     8192       4 minutes from now
+qwen3:4b     2bfd38a7daaf    3.1 GB   48%/52% CPU/GPU    4096       Stopping...

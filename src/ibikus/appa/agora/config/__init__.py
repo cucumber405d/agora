@@ -1,6 +1,6 @@
 """Configuration package."""
 
-from .loader import ConfigError, load_config
+from .loader import ConfigError, find_config_path, load_config
 from .models import (
     AppConfig,
     ContextConfig,
@@ -22,5 +22,6 @@ __all__ = [
     "PromptsConfig",
     "Provider",
     "ReflectionConfig",
+    "find_config_path",
     "load_config",
 ]

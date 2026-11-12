@@ -10,6 +10,7 @@ from .helpers import (
     make_project,
     mark,
     run_prompt,
+    wait_group,
     wait_run,
     wait_tree,
 )
@@ -23,6 +24,7 @@ async def test_mark_file_updates_context_label(tmp_path: Path) -> None:
     app = make_app(make_project(tmp_path))
     async with app.run_test(size=(100, 30)) as pilot:
         await mark(pilot, "a.md")
+        await wait_group(app, "context")
         assert app.query_one("#files").border_subtitle == "Context: 1 files, 0.0k"
         assert app.marked_paths == {make_project_root(tmp_path) / "a.md"}
 

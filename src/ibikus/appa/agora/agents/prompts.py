@@ -25,7 +25,10 @@ def load_instructions(role: Literal["generator", "critic"], override: Path | Non
 
 
 def render_context(ctx: Context) -> str:
-    blocks = [f"### file: {f.path.as_posix()}\n```\n{f.content}\n```" for f in ctx.files]
+    blocks = []
+    for f in ctx.files:
+        origin = f" (converted from {f.source_format})" if f.source_format else ""
+        blocks.append(f"### file: {f.path.as_posix()}{origin}\n```\n{f.content}\n```")
     return "\n\n".join(blocks)
 
 

@@ -8,6 +8,8 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from ibikus.appa.agora.paths import user_config_path
+
 from .models import AppConfig, _env_mapping, _yaml_path
 
 
@@ -15,7 +17,9 @@ class ConfigError(Exception):
     """Invalid or missing configuration. str() lists one '<field>: <msg>' per line."""
 
 
-def _resolve_path(path: Path | None, env: Mapping[str, str], cwd: Path) -> Path | None:
+def find_config_path(path: Path | None, env: Mapping[str, str], cwd: Path) -> Path | None:
+    """First existing config: explicit path, AGORA_CONFIG, ./config/agora.yaml,
+    ~/.agora/config.yaml. None means built-in defaults (first run)."""
     if path is not None:
         if not path.is_file():
             raise ConfigError(f"Config file not found: {path}")
@@ -26,8 +30,11 @@ def _resolve_path(path: Path | None, env: Mapping[str, str], cwd: Path) -> Path 
         if not p.is_file():
             raise ConfigError(f"Config file not found (AGORA_CONFIG): {p}")
         return p
-    default = cwd / "config" / "agora.yaml"
-    return default if default.is_file() else None
+    local = cwd / "config" / "agora.yaml"
+    if local.is_file():
+        return local
+    user = user_config_path(env)
+    return user if user.is_file() else None
 
 
 def _format(err: ValidationError) -> str:
@@ -43,10 +50,9 @@ def load_config(
     env: Mapping[str, str] | None = None,
     cwd: Path | None = None,
 ) -> AppConfig:
-    """Build AppConfig. Precedence: AGORA_* env > YAML (explicit path, AGORA_CONFIG,
-    ./config/agora.yaml) > defaults."""
+    """Build AppConfig. Precedence: AGORA_* env > YAML (see find_config_path) > defaults."""
     env_map = dict(os.environ if env is None else env)
-    yaml_file = _resolve_path(path, env_map, cwd or Path.cwd())
+    yaml_file = find_config_path(path, env_map, cwd or Path.cwd())
     yaml_token = _yaml_path.set(yaml_file)
     env_token = _env_mapping.set({k: v for k, v in env_map.items() if k != "AGORA_CONFIG"})
     try:

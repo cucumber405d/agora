@@ -54,7 +54,7 @@ reflection:
 context:
   max_file_kb: 256
   max_total_tokens: 4500           # 8k window; use 12000 for a 16k window
-  allowed_ext: [.md, .txt, .py, .java, .yaml, .json]
+  allowed_ext: [.md, .txt, .py, .java, .yaml, .json]   # text files; documents are always allowed
 observability:
   langfuse: {enabled: auto}
 ```
@@ -97,3 +97,19 @@ uv run mypy src
   then put the Langfuse keys into `.env` (see `docker/langfuse/README.md`).
 
 More: `docs/architecture.md`, `docs/configuration.md`, `docs/troubleshooting.md`.
+
+## Setup wizard and diagnostics
+
+- On the first start without any config file Agora opens the setup wizard; later open it with `F8` or `agora setup`.
+- `agora doctor` prints system and Ollama diagnostics in the console (see [troubleshooting](troubleshooting.md)).
+
+## Building the Windows installer locally
+
+```bash
+uv sync
+uv run pyinstaller packaging/agora.spec --noconfirm      # -> dist/agora/agora.exe
+uv run python scripts/smoke.py dist/agora/agora.exe 0.2.0
+iscc /DAppVersion=0.2.0 packaging/agora.iss              # -> dist/Agora-Setup-0.2.0.exe (Inno Setup 6)
+```
+
+Releases are built by GitHub Actions on a `v*` tag (see `.github/workflows/release.yml`).

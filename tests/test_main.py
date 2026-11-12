@@ -62,7 +62,7 @@ def test_version(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc:
         entry.main(["--version"])
     assert exc.value.code == 0
-    assert "agora 0.1.0" in capsys.readouterr().out
+    assert "agora 0.2.0" in capsys.readouterr().out
 
 
 def test_logging_goes_to_file_only(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -87,3 +87,53 @@ def test_missing_prompt_file_exit_2(tmp_path: Path, capsys: pytest.CaptureFixtur
     cfg = LOCAL_ONLY + "  prompts: {generator: nope.md}\n"
     assert entry.main(["--config", _yaml(tmp_path, cfg)]) == 2
     assert "reflection.prompts.generator" in capsys.readouterr().err
+
+
+def test_main_doctor_no_network(capsys: pytest.CaptureFixture[str]) -> None:
+    rc = entry.main(["doctor", "--no-network"])
+    assert rc in (0, 1, 2)
+    out = capsys.readouterr().out
+    assert "OS" in out
+    assert "Config" in out
+
+
+def _capture_app(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
+    seen: list[dict[str, object]] = []
+    original = AgoraApp.__init__
+
+    def init(self: AgoraApp, *args: object, **kwargs: object) -> None:
+        seen.append(kwargs)
+        original(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(AgoraApp, "__init__", init)
+    return seen
+
+
+def test_main_first_run_starts_wizard(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _capture_app(monkeypatch)
+    assert entry.main([]) == 0  # no config anywhere: must not fail on the cloud critic key
+    assert seen[0]["start_wizard"] is True
+
+
+def test_main_with_config_no_wizard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _capture_app(monkeypatch)
+    assert entry.main(["--config", _yaml(tmp_path, LOCAL_ONLY)]) == 0
+    assert seen[0]["start_wizard"] is False
+
+
+def test_main_setup_forces_wizard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _capture_app(monkeypatch)
+    assert entry.main(["--config", _yaml(tmp_path, LOCAL_ONLY), "setup"]) == 0
+    assert seen[0]["start_wizard"] is True
+
+
+def test_main_convert_prints_markdown(capsys: pytest.CaptureFixture[str]) -> None:
+    sample = Path(__file__).parent / "fixtures" / "docs" / "sample.pdf"
+    assert entry.main(["convert", str(sample)]) == 0
+    assert "Agora sample document PDF" in capsys.readouterr().out
+
+
+def test_main_convert_failure_exit_1(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    broken = Path(__file__).parent / "fixtures" / "docs" / "broken.pdf"
+    assert entry.main(["convert", str(broken)]) == 1
+    assert "Cannot convert" in capsys.readouterr().err

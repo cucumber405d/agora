@@ -93,9 +93,25 @@ class ReflectionConfig(_Strict):
 
 class ContextConfig(_Strict):
     max_file_kb: int = Field(256, ge=1)
+    # Size limit for documents (PDF, DOCX, ...), checked before conversion.
+    max_document_mb: int = Field(20, ge=1)
+    convert_timeout_s: float = Field(60, gt=0)
     max_total_tokens: int = Field(32000, ge=1)
     allowed_ext: list[str] = Field(
-        default_factory=lambda: [".md", ".txt", ".py", ".java", ".yaml", ".json"]
+        default_factory=lambda: [
+            ".md",
+            ".txt",
+            ".py",
+            ".java",
+            ".yaml",
+            ".json",
+            ".pdf",
+            ".docx",
+            ".pptx",
+            ".xlsx",
+            ".html",
+            ".htm",
+        ]
     )
 
 
