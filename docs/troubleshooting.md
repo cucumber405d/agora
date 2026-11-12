@@ -24,3 +24,9 @@ switch to another model, **Close** (or Esc) keeps working.
 | `F5` copies nothing | Clipboard uses OSC 52; enable it in the terminal (Windows Terminal supports it). |
 
 Logs: `~/.agora/logs/agora.log` (override with `AGORA_HOME`, level with `AGORA_LOG_LEVEL=DEBUG`).
+
+## Ollama installation and settings (setup wizard)
+
+- **"Download and run installer" does nothing visible:** the installer is saved to `~/.agora/downloads/OllamaSetup.exe` and started; it may open behind the terminal. Agora waits up to 120 s for the Ollama server; press Retry after finishing the installer.
+- **Settings did not apply:** the wizard writes `OLLAMA_CONTEXT_LENGTH`, `OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0` as user environment variables (`HKCU\Environment`, no administrator rights). Ollama reads them only at start: use "Restart Ollama" in the wizard or quit Ollama from the tray and start it again. Check with `ollama ps` (CONTEXT column).
+- **Linux/macOS:** the wizard shows the install command instead of running an installer (`curl -fsSL https://ollama.com/install.sh | sh`, or `brew install ollama`). Set the variables in your shell profile or the systemd unit.
