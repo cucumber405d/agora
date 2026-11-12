@@ -109,3 +109,25 @@ def test_document_preview(snap_compare: Any, tmp_path: Path) -> None:
         await pilot.pause()
 
     assert snap_compare(make_app(root), terminal_size=(100, 30), run_before=preview)
+
+
+def _wizard_app(tmp_path: Path) -> Any:
+    from .test_setup_wizard import World, _app
+
+    return _app(tmp_path, World())
+
+
+def test_wizard_diagnostics(snap_compare: Any, tmp_path: Path) -> None:
+    from .test_setup_wizard import settle
+
+    assert snap_compare(_wizard_app(tmp_path), terminal_size=(110, 36), run_before=settle)
+
+
+def test_wizard_presets(snap_compare: Any, tmp_path: Path) -> None:
+    from .test_setup_wizard import press, settle
+
+    async def presets(pilot: Pilot[Any]) -> None:
+        await settle(pilot)
+        await press(pilot, "next")
+
+    assert snap_compare(_wizard_app(tmp_path), terminal_size=(110, 36), run_before=presets)

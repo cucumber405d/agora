@@ -238,3 +238,39 @@ ModalScreen {
     background: #000000;
     color: #ffffff;
 }
+
+/* Setup wizard */
+#wizard {
+    max-width: 104;
+}
+
+#wizard-steps {
+    color: #ffff00;
+    margin-bottom: 1;
+}
+
+#wizard-body {
+    height: auto;
+    margin-bottom: 1;
+}
+
+#wizard-presets {
+    height: auto;
+    max-height: 6;
+    background: #000080;
+    border: none;
+}
+
+#wizard-bar {
+    margin: 1 0;
+}
+
+#wizard-status {
+    height: auto;
+    min-height: 1;
+}
+
+#wizard-buttons {
+    height: 3;
+    align-horizontal: right;
+}

@@ -12,9 +12,12 @@ from textual.containers import Grid, Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, MarkdownViewer, Select, Static, TextArea
 
+from ibikus.appa.agora import __version__
 from ibikus.appa.agora.config import AppConfig, ModelConfig, Provider
 from ibikus.appa.agora.llm.health import HealthIssue
 from ibikus.appa.agora.reflection.events import LlmExchange
+
+GITHUB_URL = "https://github.com/cucumber405d/agora"
 
 HELP_ROWS = [
     ("F1", "Help"),
@@ -23,6 +26,7 @@ HELP_ROWS = [
     ("F4", "Show active configuration"),
     ("F5", "Copy final answer to clipboard"),
     ("F6", "Save run as Markdown to ./agora-runs/"),
+    ("F8", "Setup wizard: diagnostics, configuration, Ollama, models"),
     ("F9", "Switch models / temperatures (this session only)"),
     ("F10", "Quit"),
     ("Esc", "Cancel run / close dialog"),
@@ -44,9 +48,15 @@ class _Dialog(ModalScreen[None]):
 
 
 class HelpScreen(_Dialog):
+    def __init__(self, models: str = "") -> None:
+        super().__init__()
+        self.about_text = f"Agora {__version__} ─ {GITHUB_URL}" + (
+            f"\nModels: {models}" if models else ""
+        )
+
     def compose(self) -> ComposeResult:
         body = "\n".join(f"{k:<18} {v}" for k, v in HELP_ROWS)
-        box = Static(Text(body), id="help-body", classes="dialog")
+        box = Static(Text(f"{self.about_text}\n\n{body}"), id="help-body", classes="dialog")
         box.border_title = "Help"
         yield box
 

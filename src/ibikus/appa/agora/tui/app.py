@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
@@ -17,7 +18,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Footer, TextArea
 
-from ibikus.appa.agora.config import AppConfig, ConfigError
+from ibikus.appa.agora.config import AppConfig, ConfigError, find_config_path, load_config
 from ibikus.appa.agora.context import Context, DocumentConverter, FileContextSource
 from ibikus.appa.agora.llm.factory import describe
 from ibikus.appa.agora.llm.health import HealthIssue
@@ -30,6 +31,7 @@ from .files_panel import FilesPanel
 from .llm_log import LlmLog
 from .progress import ProgressPanel
 from .run_feed import RunFeed
+from .setup_wizard import SetupDeps, SetupWizard, default_deps
 from .status_bar import StatusBar
 
 logger = logging.getLogger(__name__)
@@ -37,7 +39,7 @@ logger = logging.getLogger(__name__)
 ServiceFactory = Callable[[AppConfig], ReflectionService]
 HealthCheck = Callable[[AppConfig], Awaitable[list[HealthIssue]]]
 
-_KEY_ORDER = ["f1", "f2", "f3", "f4", "f5", "f6", "f9", "f10", "escape"]
+_KEY_ORDER = ["f1", "f2", "f3", "f4", "f5", "f6", "f8", "f9", "f10", "escape"]
 
 
 class _MainScreen(Screen[None]):
@@ -61,6 +63,7 @@ class AgoraApp(App[None]):
         Binding("f4", "show_config", "Config", priority=True),
         Binding("f5", "copy_result", "Copy", priority=True),
         Binding("f6", "save_result", "Save", priority=True),
+        Binding("f8", "setup", "Setup", priority=True),
         Binding("f9", "models", "Models", priority=True),
         Binding("f10", "quit", "Quit", priority=True),
         Binding("escape", "cancel", "Cancel", priority=True),
@@ -78,9 +81,11 @@ class AgoraApp(App[None]):
         health_check: HealthCheck | None = None,
         converter: DocumentConverter | None = None,
         start_wizard: bool = False,
+        setup_deps: SetupDeps | None = None,
     ) -> None:
         super().__init__()
         self.start_wizard = start_wizard
+        self._setup_deps = setup_deps
         # One converter per app: its cache survives context reloads and config changes.
         self._converter = converter or DocumentConverter(config.context.convert_timeout_s)
         self.config = config
@@ -120,7 +125,10 @@ class AgoraApp(App[None]):
         self.query_one(RunFeed).border_title = "Run"
         self._refresh_status()
         self.query_one("#prompt", TextArea).focus()
-        self.check_health()
+        if self.start_wizard:
+            self.action_setup()  # the health check runs when the wizard closes
+        else:
+            self.check_health()
 
     def _refresh_status(self) -> None:
         r = self.config.reflection
@@ -272,7 +280,9 @@ class AgoraApp(App[None]):
         panel.display = not panel.display
 
     def action_cancel(self) -> None:
-        if self._dialog_open():
+        if isinstance(self.screen, SetupWizard):
+            self.screen.action_escape()  # Esc cancels a download before it closes the wizard
+        elif self._dialog_open():
             self.screen.dismiss(None)
         elif self.run_in_progress and self._cancel is not None:
             self._cancel.set()
@@ -287,7 +297,31 @@ class AgoraApp(App[None]):
         return self.last_result
 
     def action_help(self) -> None:
-        self._open(HelpScreen())
+        r = self.config.reflection
+        self._open(HelpScreen(models=f"{describe(r.generator)} / {describe(r.critic)}"))
+
+    def action_setup(self) -> None:
+        if self._dialog_open():
+            return
+        if self.run_in_progress:
+            self.notify("Wait for the run to finish", severity="warning")
+            return
+        deps = self._setup_deps or default_deps()
+        found = find_config_path(None, os.environ, Path.cwd())
+        shadowed = found if found is not None and found != deps.config_path else None
+
+        def apply(path: Path | None) -> None:
+            if path is None:
+                self.check_health()
+                return
+            try:
+                self.rebuild_service(load_config(path))
+            except ConfigError as e:
+                self.notify(str(e), severity="error", timeout=8)
+                return
+            self.check_health(announce_ok=True)
+
+        self.push_screen(SetupWizard(deps, shadowed_by=shadowed), apply)
 
     def action_view(self) -> None:
         if (result := self._require_result()) is not None:
