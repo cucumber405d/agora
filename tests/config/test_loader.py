@@ -24,7 +24,22 @@ def test_defaults_when_no_file(tmp_path: Path) -> None:
     assert cfg.reflection.critic.temperature == 0.1
     assert cfg.context.max_file_kb == 256
     assert cfg.context.max_total_tokens == 32000
-    assert cfg.context.allowed_ext == [".md", ".txt", ".py", ".java", ".yaml", ".json"]
+    assert cfg.context.allowed_ext == [
+        ".md",
+        ".txt",
+        ".py",
+        ".java",
+        ".yaml",
+        ".json",
+        ".pdf",
+        ".docx",
+        ".pptx",
+        ".xlsx",
+        ".html",
+        ".htm",
+    ]
+    assert cfg.context.max_document_mb == 20
+    assert cfg.context.convert_timeout_s == 60
     assert cfg.observability.langfuse.enabled == "auto"
 
 

@@ -85,3 +85,11 @@ def test_critic_input_states_threshold_and_truncation() -> None:
     assert "was cut off" in s
     plain = build_critic_input("Q", Context.empty(), "D", threshold=9)
     assert "was cut off" not in plain
+
+
+def test_render_context_marks_converted_documents() -> None:
+    ctx = Context(
+        files=[ContextFile(path=Path("x.pdf"), content="t", tokens=1, source_format="PDF")]
+    )
+    assert "### file: x.pdf (converted from PDF)\n" in render_context(ctx)
+    assert "(converted" not in render_context(ctx_with("a.md", "x"))

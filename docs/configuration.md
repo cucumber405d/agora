@@ -23,9 +23,11 @@ Relative `reflection.prompts.*` paths are resolved against the current working d
 | `reflection.generator` | `ollama / qwen2.5:7b, t=0.9, base_url http://localhost:11434/v1` | model, see below |
 | `reflection.critic` | `anthropic / claude-haiku-4-5, t=0.1` | model, see below |
 | `reflection.prompts.generator` / `.critic` | built-in | path to a custom instruction file |
-| `context.max_file_kb` | `256` | larger files are skipped |
+| `context.max_file_kb` | `256` | larger text files are skipped |
+| `context.max_document_mb` | `20` | larger documents (PDF, DOCX, PPTX, XLSX, HTML) are skipped before conversion |
+| `context.convert_timeout_s` | `60` | per-document conversion timeout |
 | `context.max_total_tokens` | `32000` | cumulative budget, estimated as chars / 4 |
-| `context.allowed_ext` | `.md .txt .py .java .yaml .json` | case-insensitive |
+| `context.allowed_ext` | `.md .txt .py .java .yaml .json .pdf .docx .pptx .xlsx .html .htm` | case-insensitive; documents are converted to Markdown via markitdown, `.doc/.xls/.ppt` are reported as `legacy_format` |
 | `observability.langfuse.enabled` | `auto` | `auto` = on when keys are set; `on`; `off` |
 
 ### Model fields

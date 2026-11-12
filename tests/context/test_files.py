@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 from ibikus.appa.agora.config import ContextConfig
@@ -74,3 +75,65 @@ def test_path_outside_root_kept_absolute(tmp_path: Path) -> None:
 
 def test_empty_context() -> None:
     assert Context.empty().total_tokens == 0
+
+
+DOCS = Path(__file__).parent.parent / "fixtures" / "docs"
+
+
+def _doc_src(**kw: object) -> FileContextSource:
+    return FileContextSource(ContextConfig.model_validate(kw), DOCS)
+
+
+def test_document_loaded_with_format() -> None:
+    ctx = _doc_src().load([DOCS / "sample.pdf"])
+    assert [(f.path, f.source_format) for f in ctx.files] == [(Path("sample.pdf"), "PDF")]
+    assert "Agora sample document PDF" in ctx.files[0].content
+
+
+def test_plain_file_has_no_source_format(tmp_path: Path) -> None:
+    (tmp_path / "a.md").write_text("hello", encoding="utf-8")
+    assert _src(tmp_path).load([tmp_path / "a.md"]).files[0].source_format is None
+
+
+def test_legacy_format_skipped() -> None:
+    ctx = _doc_src().load([DOCS / "old.doc"])
+    assert [(s.path, s.reason) for s in ctx.skipped] == [(Path("old.doc"), "legacy_format")]
+
+
+def test_scan_pdf_no_text() -> None:
+    ctx = _doc_src().load([DOCS / "scan.pdf"])
+    assert [s.reason for s in ctx.skipped] == ["no_text"]
+
+
+def test_broken_pdf_convert_failed() -> None:
+    ctx = _doc_src().load([DOCS / "broken.pdf"])
+    assert [s.reason for s in ctx.skipped] == ["convert_failed"]
+
+
+def test_document_size_limit_uses_mb(tmp_path: Path) -> None:
+    big = tmp_path / "big.pdf"
+    big.write_bytes(b"0" * (2 * 1024 * 1024))
+    ctx = _src(tmp_path, max_document_mb=1, max_file_kb=1).load([big])
+    assert [s.reason for s in ctx.skipped] == ["too_large"]
+    shutil.copy(DOCS / "sample.pdf", tmp_path / "small.pdf")
+    ctx = _src(tmp_path, max_file_kb=1).load([tmp_path / "small.pdf"])  # 1.3 KB > 1 KB
+    assert len(ctx.files) == 1
+
+
+def test_document_counts_toward_budget() -> None:
+    ctx = _doc_src(max_total_tokens=3).load([DOCS / "sample.pdf"])
+    assert [s.reason for s in ctx.skipped] == ["over_budget"]
+
+
+def test_on_progress_called() -> None:
+    seen: list[tuple[int, int]] = []
+    _doc_src().load(
+        [DOCS / "sample.pdf", DOCS / "sample.html"], on_progress=lambda d, t: seen.append((d, t))
+    )
+    assert seen == [(1, 2), (2, 2)]
+
+
+def test_default_allowed_ext_includes_documents() -> None:
+    allowed = ContextConfig().allowed_ext
+    for ext in (".pdf", ".docx", ".pptx", ".xlsx", ".html", ".htm"):
+        assert ext in allowed
