@@ -184,6 +184,15 @@ class ProgressPanel(Vertical):
     def __init__(self, *, id: str | None = None) -> None:
         super().__init__(id=id)
         self.progress = RunProgress()
+        self.history: list[str] = []  # context-stage lines shown in this session
+
+    def context_progress(self, done: int, total: int) -> None:
+        """Show document conversion progress before the run's own stages start."""
+        line = f"Context: converting {done}/{total}"
+        self.history.append(line)
+        self.border_title = "Progress ─ context"
+        self.query_one(ProgressBar).update(progress=100 * done // max(total, 1))
+        self.query_one("#progress-log", Static).update(Text(line))
 
     def compose(self) -> ComposeResult:
         yield ProgressBar(total=100, show_eta=False, id="progress-bar")

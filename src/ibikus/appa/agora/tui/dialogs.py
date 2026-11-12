@@ -52,15 +52,16 @@ class HelpScreen(_Dialog):
 
 
 class ViewerScreen(_Dialog):
-    def __init__(self, markdown: str) -> None:
+    def __init__(self, markdown: str, title: str = "Final answer") -> None:
         super().__init__()
-        self._markdown = markdown
+        self.markdown = markdown
+        self.title_text = title
 
     def compose(self) -> ComposeResult:
         viewer = MarkdownViewer(
-            self._markdown, show_table_of_contents=False, classes="dialog text-dialog"
+            self.markdown, show_table_of_contents=False, classes="dialog text-dialog"
         )
-        viewer.border_title = "Final answer"
+        viewer.border_title = self.title_text
         yield viewer
 
 

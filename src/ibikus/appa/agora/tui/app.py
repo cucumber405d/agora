@@ -18,7 +18,7 @@ from textual.screen import ModalScreen, Screen
 from textual.widgets import Footer, TextArea
 
 from ibikus.appa.agora.config import AppConfig, ConfigError
-from ibikus.appa.agora.context import Context, FileContextSource
+from ibikus.appa.agora.context import Context, DocumentConverter, FileContextSource
 from ibikus.appa.agora.llm.factory import describe
 from ibikus.appa.agora.llm.health import HealthIssue
 from ibikus.appa.agora.reflection.events import LlmExchange, RunFailed, RunFinished, RunResult
@@ -76,8 +76,11 @@ class AgoraApp(App[None]):
         service_factory: ServiceFactory,
         observability_state: str = "off",
         health_check: HealthCheck | None = None,
+        converter: DocumentConverter | None = None,
     ) -> None:
         super().__init__()
+        # One converter per app: its cache survives context reloads and config changes.
+        self._converter = converter or DocumentConverter(config.context.convert_timeout_s)
         self.config = config
         self.root = root.resolve()
         self._service_factory = service_factory
@@ -130,7 +133,16 @@ class AgoraApp(App[None]):
         return set(self.query_one(FilesPanel).marked)
 
     def _context_source(self) -> FileContextSource:
-        return FileContextSource(self.config.context, self.root)
+        return FileContextSource(self.config.context, self.root, self._converter)
+
+    async def _load_context(self, paths: list[Path]) -> Context:
+        """Load (and convert) in a thread; conversion progress goes to the progress panel."""
+        progress = self.query_one(ProgressPanel)
+
+        def on_progress(done: int, total: int) -> None:
+            self.call_from_thread(progress.context_progress, done, total)
+
+        return await asyncio.to_thread(self._context_source().load, paths, on_progress)
 
     def rebuild_service(self, config: AppConfig) -> None:
         """Swap config and service for this session only (YAML is never rewritten).
@@ -193,7 +205,11 @@ class AgoraApp(App[None]):
         return isinstance(self.screen, ModalScreen)
 
     def on_files_panel_marked_changed(self, message: FilesPanel.MarkedChanged) -> None:
-        ctx = self._context_source().load(sorted(message.marked))
+        self._update_context_label(sorted(message.marked))
+
+    @work(exclusive=True, group="context")
+    async def _update_context_label(self, paths: list[Path]) -> None:
+        ctx = await self._load_context(paths)
         panel = self.query_one(FilesPanel)
         panel.border_subtitle = f"Context: {len(ctx.files)} files, {ctx.total_tokens / 1000:.1f}k"
         if ctx.skipped:
@@ -201,6 +217,25 @@ class AgoraApp(App[None]):
                 "Skipped: " + ", ".join(f"{s.path.name} ({s.reason})" for s in ctx.skipped),
                 severity="warning",
             )
+
+    def on_files_panel_file_opened(self, message: FilesPanel.FileOpened) -> None:
+        if not self._dialog_open():
+            self._preview(message.path)
+
+    @work(exclusive=True, group="preview")
+    async def _preview(self, path: Path) -> None:
+        ctx = await self._load_context([path])
+        if ctx.files:
+            f = ctx.files[0]
+            origin = f", converted from {f.source_format}" if f.source_format else ""
+            title = f"{path.name} ─ ~{f.tokens} tokens{origin}"
+            body = f.content
+        else:
+            reason = ctx.skipped[0].reason if ctx.skipped else "unreadable"
+            title = f"{path.name} ─ not sent"
+            body = f"**Skipped:** `{reason}`"
+        if not self._dialog_open():
+            self.push_screen(ViewerScreen(body, title=title))
 
     # -- actions ------------------------------------------------------------------------------
 
@@ -218,18 +253,13 @@ class AgoraApp(App[None]):
             # The last probe found a problem: re-check instead of waiting for SDK retries.
             self.check_health(run_after=True)
             return
-        ctx = self._context_source().load(sorted(self.query_one(FilesPanel).marked))
-        if ctx.skipped:
-            self.notify(
-                "Not sent: " + ", ".join(f"{s.path.name} ({s.reason})" for s in ctx.skipped),
-                severity="warning",
-            )
+        paths = sorted(self.query_one(FilesPanel).marked)
         self.query_one(RunFeed).clear()
         self.last_result = None  # F3/F5/F6 must never pair the new prompt with an old answer
         self.run_in_progress = True
         self._cancel = asyncio.Event()
-        self.last_prompt, self.last_context = prompt, ctx
-        self._run(prompt, ctx, self._cancel)
+        self.last_prompt, self.last_context = prompt, None
+        self._run(prompt, paths, self._cancel)
 
     def action_go_parent(self) -> None:
         if not self._dialog_open():
@@ -310,7 +340,19 @@ class AgoraApp(App[None]):
         self.push_screen(ModelsScreen(self.config), apply)
 
     @work(exclusive=True, group="run")
-    async def _run(self, prompt: str, ctx: Context, cancel: asyncio.Event) -> None:
+    async def _run(self, prompt: str, paths: list[Path], cancel: asyncio.Event) -> None:
+        try:
+            ctx = await self._load_context(paths)
+        except BaseException:
+            self.run_in_progress = False
+            self._cancel = None
+            raise
+        self.last_context = ctx
+        if ctx.skipped:
+            self.notify(
+                "Not sent: " + ", ".join(f"{s.path.name} ({s.reason})" for s in ctx.skipped),
+                severity="warning",
+            )
         feed = self.query_one(RunFeed)
         progress = self.query_one(ProgressPanel)
         llm_log = self.query_one(LlmLog)

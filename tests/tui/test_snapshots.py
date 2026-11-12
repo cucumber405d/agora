@@ -89,3 +89,23 @@ def test_log_entry_dialog(snap_compare: Any, tmp_path: Path) -> None:
     assert snap_compare(
         make_app(make_project(tmp_path)), terminal_size=(100, 30), run_before=open_entry
     )
+
+
+def test_document_preview(snap_compare: Any, tmp_path: Path) -> None:
+    import shutil
+
+    from .helpers import _nodes, wait_group
+
+    root = make_project(tmp_path)
+    shutil.copy(Path(__file__).parent.parent / "fixtures" / "docs" / "sample.pdf", root)
+
+    async def preview(pilot: Pilot[Any]) -> None:
+        panel = await wait_tree(pilot)
+        node = next(n for n in _nodes(panel) if n.data and n.data.path.name == "sample.pdf")
+        panel.focus()
+        panel.move_cursor(node)
+        await pilot.press("enter")
+        await wait_group(pilot.app, "preview")
+        await pilot.pause()
+
+    assert snap_compare(make_app(root), terminal_size=(100, 30), run_before=preview)
