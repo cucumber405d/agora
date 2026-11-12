@@ -3,7 +3,7 @@
 Sources, highest priority first:
 
 1. Environment variables `AGORA_<SECTION>__<FIELD>` (e.g. `AGORA_REFLECTION__CRITIC__TEMPERATURE=0.2`)
-2. YAML file: `--config PATH`, else `AGORA_CONFIG`, else `./config/agora.yaml`
+2. YAML file: `--config PATH`, else `AGORA_CONFIG`, else `./config/agora.yaml`, else `~/.agora/config.yaml` (written by the setup wizard; `AGORA_HOME` moves `~/.agora`)
 3. Built-in defaults
 
 Partial overrides merge per field: setting only `reflection.critic.temperature` keeps the

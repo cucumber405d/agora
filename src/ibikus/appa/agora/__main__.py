@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -15,6 +14,7 @@ from ibikus.appa.agora.config import AppConfig, ConfigError, load_config
 from ibikus.appa.agora.llm.health import check_config
 from ibikus.appa.agora.logging_setup import setup_logging
 from ibikus.appa.agora.observability.langfuse import setup_observability
+from ibikus.appa.agora.paths import agora_home
 from ibikus.appa.agora.reflection.service import ReflectionService
 from ibikus.appa.agora.tui.app import AgoraApp
 
@@ -35,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse(argv)
     load_dotenv(Path.cwd() / ".env")
     # Logging first: Langfuse/OpenTelemetry log export errors and must not hit the terminal.
-    log_path = setup_logging(Path(os.environ.get("AGORA_HOME", "~/.agora")).expanduser())
+    log_path = setup_logging(agora_home())
     try:
         config = load_config(args.config)
         observability = setup_observability(config.observability.langfuse)

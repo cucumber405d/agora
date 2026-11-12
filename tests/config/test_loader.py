@@ -102,3 +102,31 @@ def test_provider_switch_requires_name(tmp_path: Path) -> None:
 
 def test_language_default_auto(tmp_path: Path) -> None:
     assert load_config(env={}, cwd=tmp_path).reflection.language == "auto"
+
+
+def test_find_config_prefers_cwd_over_home(tmp_path: Path) -> None:
+    from ibikus.appa.agora.config.loader import find_config_path
+
+    home = tmp_path / "home"
+    _write(home / "config.yaml", "{}")
+    cwd_cfg = _write(tmp_path / "config" / "agora.yaml", "{}")
+    assert find_config_path(None, {"AGORA_HOME": str(home)}, tmp_path) == cwd_cfg
+
+
+def test_find_config_falls_back_to_home(tmp_path: Path) -> None:
+    from ibikus.appa.agora.config.loader import find_config_path
+
+    home_cfg = _write(tmp_path / "home" / "config.yaml", "{}")
+    assert find_config_path(None, {"AGORA_HOME": str(tmp_path / "home")}, tmp_path) == home_cfg
+
+
+def test_find_config_none_when_nothing(tmp_path: Path) -> None:
+    from ibikus.appa.agora.config.loader import find_config_path
+
+    assert find_config_path(None, {"AGORA_HOME": str(tmp_path / "home")}, tmp_path) is None
+
+
+def test_load_config_reads_home_config(tmp_path: Path) -> None:
+    _write(tmp_path / "home" / "config.yaml", "reflection: {max_iterations: 5}\n")
+    cfg = load_config(env={"AGORA_HOME": str(tmp_path / "home")}, cwd=tmp_path)
+    assert cfg.reflection.max_iterations == 5
