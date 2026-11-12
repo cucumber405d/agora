@@ -55,7 +55,8 @@ Package root: `src/ibikus/appa/agora/` (`ibikus` and `ibikus.appa` are namespace
 | Module | Responsibility |
 |---|---|
 | `__init__.py` | Version; sets `PYDANTIC_AI_NO_BANNER=1` before Pydantic AI is imported (its banner would corrupt the TUI). |
-| `__main__.py` | `agora [--config] [--root] [--version]`: loads `.env`, sets up logging, validates configuration and API keys (exit code 2 with a readable message), sets up observability, builds the service factory and the LLM health check, starts the app, flushes traces on exit. |
+| `__main__.py` | `agora [--config] [--root] [--version] [doctor [--no-network] | setup | convert FILE]`: loads `.env`, sets up logging, validates configuration and API keys (exit code 2 with a readable message); with no config file anywhere it starts with the Light preset and opens the setup wizard; sets up observability, builds the service factory and the LLM health check, starts the app, flushes traces on exit. |
+| `paths.py` | Per-user locations: `~/.agora` (or `AGORA_HOME`) with `config.yaml`, `logs/`, `downloads/`; `is_frozen()` for the PyInstaller build. |
 | `logging_setup.py` | File-only logging to `$AGORA_HOME/logs/agora.log` (rotating), level from `AGORA_LOG_LEVEL`; routes Python warnings to the log. Nothing may reach stdout/stderr while the TUI owns the terminal. |
 
 ### `config/`
@@ -63,7 +64,7 @@ Package root: `src/ibikus/appa/agora/` (`ibikus` and `ibikus.appa` are namespace
 | Module | Responsibility |
 |---|---|
 | `models.py` | Pydantic models: `ModelConfig` (provider, name, temperature, max_tokens, base_url, timeout_s, max_retries, `think`), `ReflectionConfig` (max_iterations, approve_threshold, `language`, generator, critic, prompts), `ContextConfig`, `ObservabilityConfig`, `AppConfig` (pydantic-settings). Partial overrides keep role defaults only while the provider stays the default one. Unknown fields (e.g. `api_key`) are rejected. |
-| `loader.py` | `load_config()`: precedence `AGORA_*` env (`__` for nesting) > YAML (`--config`, `AGORA_CONFIG`, `./config/agora.yaml`) > defaults; `ConfigError` lists `field: message` lines. |
+| `loader.py` | `load_config()`: precedence `AGORA_*` env (`__` for nesting) > YAML (`--config`, `AGORA_CONFIG`, `./config/agora.yaml`, `~/.agora/config.yaml`; `find_config_path()`) > defaults; `ConfigError` lists `field: message` lines. |
 
 ### `llm/`
 
@@ -76,8 +77,9 @@ Package root: `src/ibikus/appa/agora/` (`ibikus` and `ibikus.appa` are namespace
 
 | Module | Responsibility |
 |---|---|
-| `models.py` | `Context`, `ContextFile`, `SkippedFile` (reason: extension, too_large, not_utf8, over_budget, unreadable); `estimate_tokens()` ≈ chars / 4 (offline). |
-| `files.py` | `ContextSource` protocol and `FileContextSource`: reads marked files in order, checks extension, size, UTF-8 / binary content and a cumulative token budget. Future RAG sources implement the same protocol. |
+| `models.py` | `Context`, `ContextFile`, `ContextFile.source_format` for converted documents, `SkippedFile` (reason: extension, too_large, not_utf8, over_budget, unreadable, legacy_format, no_text, convert_failed); `estimate_tokens()` ≈ chars / 4 (offline). |
+| `documents.py` | `DocumentConverter`: PDF, DOCX, PPTX, XLSX, HTML → Markdown via markitdown, in a worker thread with a timeout, cached by (path, mtime, size). |
+| `files.py` | `ContextSource` protocol and `FileContextSource`: reads marked files in order, converts documents, checks extension, size (`max_file_kb` / `max_document_mb`), UTF-8 / binary content and a cumulative token budget; reports conversion progress. Future RAG sources implement the same protocol. |
 
 ### `agents/`
 
@@ -106,6 +108,20 @@ Package root: `src/ibikus/appa/agora/` (`ibikus` and `ibikus.appa` are namespace
 |---|---|
 | `langfuse.py` | Optional Langfuse tracing: trace `reflection-run`, spans `iteration-N/generate` and `iteration-N/critique` (score, approved), generations from the Pydantic AI OpenTelemetry instrumentation. `enabled: auto` turns it on when keys are present; any failure degrades to a no-op. |
 
+### `setup/`
+
+No Textual imports: the wizard and `agora doctor` share these modules. Everything external (HTTP, processes, registry, environment) is injected, so tests run without network or Windows.
+
+| Module | Responsibility |
+|---|---|
+| `runner.py` | `run_command()`: external commands with a timeout; missing binaries and timeouts become result codes, never exceptions. |
+| `diagnostics.py` | `collect()` → `SystemReport`: OS, RAM, free disk for Ollama models, GPU (`nvidia-smi`; name only for other GPUs), Ollama installed/running/version/models/`OLLAMA_*` variables. Each check is isolated. Parsers for `nvidia-smi` and `ollama ps`. |
+| `presets.py`, `presets.yaml` | Light / Standard / Quality configurations; `recommend()` picks the strongest whose RAM/VRAM requirements are met, `unmet()` explains the others, `disk_shortfall_gb()`. |
+| `config_writer.py` | `build_config_data()` applies a preset on top of the existing config; `write_config()` writes atomically and keeps `config.yaml.bak`; `first_run_config()`. |
+| `models.py` | `missing_models()`, `pull()` (`/api/pull` NDJSON stream with progress; an error line or a stream without `success` is a `PullError`), `verify()` (1-token request, then `ollama ps`: 100% GPU, context window). |
+| `ollama_setup.py`, `winenv.py` | Download (`.part` file, cleaned up on failure or cancel) and launch `OllamaSetup.exe`, wait for the server, recommended `OLLAMA_*` values, restart Ollama; user environment variables in `HKCU\Environment`. |
+| `cli.py` | `agora doctor`: report text (✓/⚠/✕ or ASCII), configurations with the recommendation, exit code 0/1/2. |
+
 ### `tui/`
 
 | Module | Responsibility |
@@ -116,13 +132,14 @@ Package root: `src/ibikus/appa/agora/` (`ibikus` and `ibikus.appa` are namespace
 | `progress.py` | `RunProgress` (UI-free state model) and `ProgressPanel`: spinner and timer, progress bar, models and loop limits, stage log with durations and tokens/s. |
 | `llm_log.py` | `LlmLog`: colour-coded exchange log (requests cyan, responses white, retries yellow, errors red); Enter opens the full text. |
 | `status_bar.py` | Active models and Langfuse state. |
-| `dialogs.py` | Help (F1), Markdown viewer (F3), configuration (F4), model switch (F9), LLM error box, LLM log entry viewer. |
+| `setup_wizard.py` | `SetupWizard` (F8, first start, `agora setup`): six steps — system, configuration, Ollama, Ollama settings, models, done; downloads run in cancellable workers; `SetupDeps` holds the injected outside world. |
+| `dialogs.py` | Help with About (F1), document preview (Enter in the files panel), Markdown viewer (F3), configuration (F4), model switch (F9), LLM error box, LLM log entry viewer. |
 | `agora.tcss` | Classic Far palette, high-contrast text dialogs. |
 
 ## Run flow
 
 1. F2 → health problems known? re-probe first; empty prompt or a run in progress is rejected.
-2. Marked files → `FileContextSource` → `Context` (skipped files are reported).
+2. Marked files → `FileContextSource` (documents converted in a thread, progress in the panel) → `Context` (skipped files are reported).
 3. `ReflectionService.run()` streams events; the app routes `LlmExchange` to the LLM log and all
    other events to the run feed and the progress panel.
 4. `RunFinished` or `RunFailed` ends the run; a `provider_error` triggers the health check and the
@@ -136,7 +153,10 @@ Package root: `src/ibikus/appa/agora/` (`ibikus` and `ibikus.appa` are namespace
 | LangGraph | Reflection loop as a state graph with streaming of custom events |
 | Pydantic, pydantic-settings | Data models, validation, layered configuration (env + YAML) |
 | Textual, Rich | Console UI, widgets, CSS styling, Pilot-based UI tests |
-| httpx | LLM health probes |
+| httpx | LLM health probes, Ollama API, installer download |
+| markitdown | PDF / DOCX / PPTX / XLSX / HTML to Markdown |
+| psutil | RAM and disk diagnostics |
+| PyInstaller, Inno Setup | Windows build (onedir) and per-user installer |
 | Langfuse (OpenTelemetry) | Optional tracing |
 | python-dotenv | `.env` loading |
 | pyperclip | System clipboard (Git Bash ignores the terminal clipboard sequence) |
@@ -148,6 +168,13 @@ No test touches the network: models are `TestModel`/`FunctionModel`, Ollama resp
 replayed with `httpx.MockTransport` (including SSE streams), the UI is driven with Textual Pilot
 and compared with SVG snapshots. `uv run pytest -m integration` runs one smoke test against a real
 local Ollama.
+
+## Packaging and release
+
+- `packaging/agora.spec` — PyInstaller onedir build (`dist/agora/agora.exe`) with package data and the metadata of all dependencies.
+- `packaging/agora.iss` — Inno Setup, per user (`%LOCALAPPDATA%\Programs\Agora`), Start menu shortcut to `launch.cmd` (Windows Terminal or a sized UTF-8 console), optional PATH entry.
+- `scripts/smoke.py` — checks a built exe: `--version`, `doctor --no-network`, document conversion.
+- `.github/workflows/release.yml` — on a `v*` tag: tests, build, smoke test, installer, portable zip, GitHub Release with `CHANGELOG.md` from `scripts/changelog.py` (EN parts of `docs/impacts/`).
 
 ## Extension points for later cycles
 

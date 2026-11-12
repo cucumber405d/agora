@@ -2,7 +2,7 @@
 name = "agora"
 dynamic = ["version"]
 description = "Agora - reflection agent with a Far-style console UI (part of the Appa platform)"
-readme = "docs/start.md"
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic-ai-slim[openai,anthropic]>=2.66,<2.67",
