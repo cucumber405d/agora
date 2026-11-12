@@ -62,3 +62,15 @@ API keys are read only from the environment or `.env` (see `.env.example`), neve
 reflection:
   critic: {provider: ollama, name: qwen2.5:7b, temperature: 0.1}
 ```
+
+## Presets (setup wizard)
+
+The setup wizard (`F8`, `agora setup`) offers three configurations. It recommends the strongest one whose requirements the machine meets; the others can still be chosen with a warning. All presets use local Ollama models with `think: false` and `language: auto`.
+
+| Preset | Requirements | Generator / critic | Download | Ollama context / `max_total_tokens` |
+|---|---|---|---|---|
+| Light | RAM ≥ 8 GB (CPU is fine) | qwen3:4b / qwen3:4b | ~2.5 GB | 4096 / 2500 |
+| Standard | VRAM ≥ 8 GB | qwen3.5:9b / qwen3:8b | ~11 GB | 8192 / 4500 |
+| Quality | VRAM ≥ 12 GB | qwen3.5:9b / qwen3:14b | ~15 GB | 8192 / 4500 |
+
+If the GPU memory cannot be determined (non-NVIDIA GPUs), nothing is recommended and Light is preselected. The presets live in `src/ibikus/appa/agora/setup/presets.yaml`.
