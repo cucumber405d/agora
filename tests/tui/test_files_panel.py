@@ -234,3 +234,16 @@ async def test_no_dotdot_at_filesystem_root(tmp_path: Path) -> None:
         panel.path = Path(tmp_path.anchor)
         await _settle(pilot, panel)
         assert _up(panel) is None
+
+
+async def test_title_uses_platform_separator(tmp_path: Path, monkeypatch: Any) -> None:
+    from ibikus.appa.agora.tui import files_panel
+
+    monkeypatch.setattr(files_panel, "PATH_SEP", "\\")
+    deep = tmp_path / ("x" * 50) / "project"
+    deep.mkdir(parents=True)
+    (deep / "a.md").write_text("x", encoding="utf-8")
+    app = make_app(deep)
+    async with app.run_test(size=(100, 30)) as pilot:
+        await wait_tree(pilot)
+        assert app.query_one(FilesPanel).border_title == "Files: …\\project"

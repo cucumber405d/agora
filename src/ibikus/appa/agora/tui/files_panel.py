@@ -20,6 +20,9 @@ from textual.widgets import DirectoryTree
 from textual.widgets._directory_tree import DirEntry
 from textual.widgets._tree import Tree, TreeNode
 
+# Separator in the shortened title; a module constant so UI snapshots are platform-independent.
+PATH_SEP = os.sep
+
 
 class FilesPanel(DirectoryTree):
     BINDINGS: ClassVar[list[BindingType]] = [
@@ -53,7 +56,7 @@ class FilesPanel(DirectoryTree):
         current = Path(self.path).resolve()
         shown = str(current)
         if len(shown) > 40:  # keep the current folder name whole, shorten the rest
-            shown = f"…{os.sep}{current.name}"
+            shown = f"…{PATH_SEP}{current.name}"
         self.border_title = f"Files: {shown}"
 
     def _prune_marks(self) -> None:
