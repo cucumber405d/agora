@@ -11,7 +11,9 @@ from typing import Any
 
 import yaml
 
-from .presets import Preset
+from ibikus.appa.agora.config import AppConfig
+
+from .presets import Preset, load_presets
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,13 @@ def build_config_data(preset: Preset, existing: dict[str, Any] | None = None) ->
     reflection["language"] = "auto"
     data.setdefault("context", {})["max_total_tokens"] = preset.max_total_tokens
     return data
+
+
+def first_run_config() -> AppConfig:
+    """In-memory config used before the wizard has written one: the Light preset, so the
+    app starts without any cloud API key."""
+    light = next(p for p in load_presets() if p.id == "light")
+    return AppConfig.model_validate(build_config_data(light))
 
 
 def read_existing(path: Path) -> dict[str, Any] | None:

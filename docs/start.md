@@ -97,3 +97,8 @@ uv run mypy src
   then put the Langfuse keys into `.env` (see `docker/langfuse/README.md`).
 
 More: `docs/architecture.md`, `docs/configuration.md`, `docs/troubleshooting.md`.
+
+## Setup wizard and diagnostics
+
+- On the first start without any config file Agora opens the setup wizard; later open it with `F8` or `agora setup`.
+- `agora doctor` prints system and Ollama diagnostics in the console (see [troubleshooting](troubleshooting.md)).

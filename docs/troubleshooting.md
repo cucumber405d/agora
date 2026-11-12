@@ -30,3 +30,7 @@ Logs: `~/.agora/logs/agora.log` (override with `AGORA_HOME`, level with `AGORA_L
 - **"Download and run installer" does nothing visible:** the installer is saved to `~/.agora/downloads/OllamaSetup.exe` and started; it may open behind the terminal. Agora waits up to 120 s for the Ollama server; press Retry after finishing the installer.
 - **Settings did not apply:** the wizard writes `OLLAMA_CONTEXT_LENGTH`, `OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0` as user environment variables (`HKCU\Environment`, no administrator rights). Ollama reads them only at start: use "Restart Ollama" in the wizard or quit Ollama from the tray and start it again. Check with `ollama ps` (CONTEXT column).
 - **Linux/macOS:** the wizard shows the install command instead of running an installer (`curl -fsSL https://ollama.com/install.sh | sh`, or `brew install ollama`). Set the variables in your shell profile or the systemd unit.
+
+## `agora doctor`
+
+`agora doctor` prints the diagnostics the setup wizard uses (OS, RAM, disk, GPU, Ollama, config file) and which configurations fit this machine. Exit code: 0 — all fine, 1 — warnings, 2 — errors. `agora doctor --no-network` skips the Ollama server check. Attach its output when reporting a problem.

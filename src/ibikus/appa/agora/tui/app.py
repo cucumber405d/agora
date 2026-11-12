@@ -77,8 +77,10 @@ class AgoraApp(App[None]):
         observability_state: str = "off",
         health_check: HealthCheck | None = None,
         converter: DocumentConverter | None = None,
+        start_wizard: bool = False,
     ) -> None:
         super().__init__()
+        self.start_wizard = start_wizard
         # One converter per app: its cache survives context reloads and config changes.
         self._converter = converter or DocumentConverter(config.context.convert_timeout_s)
         self.config = config
